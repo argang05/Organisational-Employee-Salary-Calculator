@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
+import { calculateSalary } from "@/lib/salary/calculator";
 import { defaultSalaryInput } from "@/lib/salary/defaults";
 import type { SalaryInput, SalaryResponse } from "@/lib/salary/types";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -36,7 +37,9 @@ export function SalaryCalculator() {
   const { toast } = useToast();
   const [step, setStep] = React.useState<1 | 2>(1);
   const [form, setForm] = React.useState<SalaryInput>(defaultSalaryInput);
-  const [result, setResult] = React.useState<SalaryResponse | null>(null);
+  const [result, setResult] = React.useState<SalaryResponse | null>(() =>
+    calculateSalary(defaultSalaryInput),
+  );
   const [isPending, startTransition] = React.useTransition();
   const lastToastKeyRef = React.useRef<string>("");
 
@@ -112,23 +115,22 @@ export function SalaryCalculator() {
                 <HeroStat
                   icon={Calculator}
                   label="Monthly CTC"
-                  value={breakdown ? formatCurrency(breakdown.monthlyCtc) : "Waiting"}
+                  value={breakdown ? formatCurrency(breakdown.monthlyCtc) : formatCurrency(0)}
                 />
                 <HeroStat
                   icon={ShieldPlus}
-                  label="Special Allowance"
+                  label="Basic Salary"
                   value={
-                    breakdown
-                      ? formatCurrency(breakdown.specialAllowanceAfterAdjustments)
-                      : "Waiting"
+                    breakdown ? formatCurrency(breakdown.basic) : formatCurrency(0)
                   }
                 />
                 <HeroStat
                   icon={Landmark}
                   label="Net In Hand"
                   value={
-                    breakdown ? formatCurrency(breakdown.netInHandMonthly) : "Waiting"
+                    breakdown ? formatCurrency(breakdown.netInHandMonthly) : formatCurrency(0)
                   }
+                  highlight
                 />
               </div>
             </div>
@@ -150,7 +152,7 @@ export function SalaryCalculator() {
                   active={step === 1}
                   index={1}
                   title="Core salary structure"
-                  description="CTC, BYOD, PF, NPS, car perks, and car rental."
+                  description="CTC, BYOD, PF, NPS, and car rental."
                 />
                 <StepPill
                   active={step === 2}
@@ -252,23 +254,6 @@ function StepOne({
           </Field>
 
           <Field>
-            <Label htmlFor="carPerksChoice">Car perks choice</Label>
-            <Select
-              id="carPerksChoice"
-              value={form.carPerksChoice}
-              onChange={(event) =>
-                setField(
-                  "carPerksChoice",
-                  event.target.value as SalaryInput["carPerksChoice"],
-                )
-              }
-            >
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </Select>
-          </Field>
-
-          <Field>
             <Label htmlFor="carRentalChoice">Car rental option</Label>
             <Select
               id="carRentalChoice"
@@ -305,6 +290,10 @@ function StepOne({
               }
               placeholder="Enter car rental amount"
             />
+            <p className="text-xs text-muted-foreground">
+              Car perks of {formatCurrency(1800)} are applied automatically when
+              car rental is enabled.
+            </p>
           </Field>
 
           <Field>
@@ -401,7 +390,7 @@ function StepTwo({
             value={
               breakdown
                 ? formatCurrency(breakdown.specialAllowanceBeforeAdjustments)
-                : "Waiting"
+                : formatCurrency(0)
             }
           />
           <MiniPanel
@@ -410,14 +399,14 @@ function StepTwo({
             value={
               breakdown
                 ? formatCurrency(breakdown.specialAllowanceAfterAdjustments)
-                : "Waiting"
+                : formatCurrency(0)
             }
           />
           <MiniPanel
             icon={CarFront}
             title="Remaining car rental"
             value={
-              breakdown ? formatCurrency(breakdown.remainingCarRental) : "Waiting"
+              breakdown ? formatCurrency(breakdown.remainingCarRental) : formatCurrency(0)
             }
           />
         </div>
@@ -565,13 +554,13 @@ function TaxCard({ result }: { result: SalaryResponse | null }) {
             icon={BriefcaseBusiness}
             title="Taxable income"
             value={
-              breakdown ? formatCurrency(breakdown.annualTaxableIncome) : "Waiting"
+              breakdown ? formatCurrency(breakdown.annualTaxableIncome) : formatCurrency(0)
             }
           />
           <MiniPanel
             icon={Landmark}
             title="Monthly tax"
-            value={breakdown ? formatCurrency(breakdown.netMonthlyTax) : "Waiting"}
+            value={breakdown ? formatCurrency(breakdown.netMonthlyTax) : formatCurrency(0)}
           />
         </div>
 
@@ -600,7 +589,7 @@ function SummaryRow({
     <TableRow>
       <TableCell className="font-medium">{label}</TableCell>
       <TableCell className="text-right">
-        {typeof value === "number" ? formatCurrency(value) : "Waiting"}
+        {typeof value === "number" ? formatCurrency(value) : formatCurrency(0)}
       </TableCell>
     </TableRow>
   );
@@ -626,7 +615,7 @@ function SalarySnapshot({
               {label}
             </p>
             <p className="mt-2 text-lg font-semibold">
-              {typeof value === "number" ? formatCurrency(value) : "Waiting"}
+              {typeof value === "number" ? formatCurrency(value) : formatCurrency(0)}
             </p>
           </div>
         ))}
@@ -639,16 +628,46 @@ function HeroStat({
   icon: Icon,
   label,
   value,
+  highlight = false,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
+  highlight?: boolean;
 }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/10 p-4">
-      <Icon className="h-5 w-5 text-accent-foreground" />
-      <p className="mt-3 text-xs uppercase tracking-[0.16em] text-white/60">{label}</p>
-      <p className="mt-2 text-xl font-semibold">{value}</p>
+    <div
+      className={cn(
+        "flex min-w-0 flex-col rounded-3xl border p-4",
+        highlight
+          ? "border-amber-200/60 bg-gradient-to-br from-amber-300 via-orange-300 to-amber-200 text-slate-950 shadow-2xl"
+          : "border-white/10 bg-white/10",
+      )}
+    >
+      <Icon
+        className={cn(
+          "h-5 w-5",
+          highlight ? "text-slate-950" : "text-accent-foreground",
+        )}
+      />
+      <p
+        className={cn(
+          "mt-3 text-xs uppercase tracking-[0.16em]",
+          highlight ? "text-slate-800/80" : "text-white/60",
+        )}
+      >
+        {label}
+      </p>
+      <p
+        className={cn(
+          "mt-2 max-w-full font-semibold leading-tight tabular-nums",
+          highlight
+            ? "text-[clamp(1.6rem,2vw,2.35rem)] tracking-[-0.03em]"
+            : "text-xl",
+        )}
+      >
+        {value}
+      </p>
     </div>
   );
 }

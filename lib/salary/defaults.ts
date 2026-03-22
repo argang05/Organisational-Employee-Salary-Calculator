@@ -3,7 +3,6 @@ import type { SalaryInput } from "@/lib/salary/types";
 export const defaultSalaryInput: SalaryInput = {
   annualCtc: 0,
   byodChoice: "yes",
-  carPerksChoice: "no",
   carRentalChoice: "no",
   carRentalAmount: 0,
   npsRate: 0,

@@ -76,12 +76,48 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
   const warnings: string[] = [];
   const assumptions = [
     "Bonus is applied when annual CTC is below Rs. 5,04,000 or when monthly basic is below Rs. 21,000, based on your written rule.",
-    "Car rental amount is treated as the total monthly car-rental benefit. When car perks are enabled, Rs. 1,800 is split out first and the remaining amount is kept as car-rental deduction.",
+    "Car perks of Rs. 1,800 are applied automatically whenever car rental is enabled.",
     "VPF, medical insurance, and loans/advances are treated as monthly reductions from special allowance before final gross and tax are calculated.",
   ];
 
   if (input.annualCtc <= 0) {
-    errors.push("Fixed annual CTC must be greater than zero.");
+    return {
+      input,
+      breakdown: {
+        monthlyCtc: 0,
+        basic: 0,
+        hra: 0,
+        lta: 0,
+        bonusAllowance: 0,
+        byod: 0,
+        carPerks: 0,
+        nps: 0,
+        pf: 0,
+        gratuity: 0,
+        totalEmployerContribution: 0,
+        specialAllowanceBeforeAdjustments: 0,
+        specialAllowanceAfterAdjustments: 0,
+        grossSalaryBeforeAdjustments: 0,
+        grossSalaryAfterAdjustments: 0,
+        calculatedMonthlyCtc: 0,
+        netDiff: 0,
+        carRentalAmount: 0,
+        remainingCarRental: 0,
+        maxCarRentalAllowed: 0,
+        annualTaxableIncome: 0,
+        annualIncomeTax: 0,
+        educationCess: 0,
+        netAnnualTax: 0,
+        netMonthlyTax: 0,
+        professionalTaxMonthly: 0,
+        medicalInsuranceMonthly: 0,
+        totalDeductions: 0,
+        netInHandMonthly: 0,
+      },
+      warnings: [],
+      errors: [],
+      assumptions,
+    };
   }
 
   const monthlyCtc = Math.ceil(input.annualCtc / 12);
@@ -92,7 +128,7 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
     input.annualCtc < 504_000 || basic < 21_000 ? basic * 0.0833 : 0,
   );
   const byod = input.byodChoice === "yes" ? BYOD_AMOUNT : 0;
-  const carPerks = input.carPerksChoice === "yes" ? CAR_PERKS_AMOUNT : 0;
+  const carPerks = input.carRentalChoice === "yes" ? CAR_PERKS_AMOUNT : 0;
 
   const nps =
     input.npsRate > 0 ? round2((basic * input.npsRate) / 100) : 0;
@@ -114,13 +150,13 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
     carPerks -
     totalEmployerContribution;
 
-  const maxCarRentalAllowed = Math.max(0, round2(baseSpecialAllowance * 0.7));
+  const maxCarRentalAllowed = Math.max(0, round2(baseSpecialAllowance * 0.95));
   let carRentalAmount =
     input.carRentalChoice === "yes" ? input.carRentalAmount : 0;
 
   if (input.carRentalChoice === "yes" && carRentalAmount > maxCarRentalAllowed) {
     warnings.push(
-      `Car rental exceeds 70% of special allowance. It has been capped at Rs. ${maxCarRentalAllowed.toLocaleString("en-IN")}.`,
+      `Car rental exceeds 95% of special allowance. It has been capped at Rs. ${maxCarRentalAllowed.toLocaleString("en-IN")}.`,
     );
     carRentalAmount = maxCarRentalAllowed;
   }
@@ -134,8 +170,8 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
   );
 
   if (specialAllowanceBeforeAdjustments < 0) {
-    errors.push(
-      "Special allowance became negative after employer contributions and car-rental choices. Please revise the figures.",
+    warnings.push(
+      "Special allowance is negative after employer contributions and car-rental choices, and the gross salary has been reduced accordingly.",
     );
   }
 
@@ -152,16 +188,16 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
   );
 
   if (specialAllowanceAfterAdjustments < 0) {
-    errors.push(
-      "The selected VPF, medical insurance, or loan amount makes special allowance negative. Please revise the figures.",
+    warnings.push(
+      "The selected VPF, medical insurance, or loan amount makes special allowance negative, and the gross salary has been reduced accordingly.",
     );
   }
 
   const grossSalaryBeforeAdjustments = round2(
-    basic + hra + lta + bonusAllowance + Math.max(0, specialAllowanceBeforeAdjustments),
+    basic + hra + lta + bonusAllowance + specialAllowanceBeforeAdjustments,
   );
   const grossSalaryAfterAdjustments = round2(
-    basic + hra + lta + bonusAllowance + Math.max(0, specialAllowanceAfterAdjustments),
+    basic + hra + lta + bonusAllowance + specialAllowanceAfterAdjustments,
   );
   const calculatedMonthlyCtc = round2(
     grossSalaryBeforeAdjustments + totalEmployerContribution,

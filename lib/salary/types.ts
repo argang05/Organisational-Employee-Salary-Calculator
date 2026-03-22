@@ -6,7 +6,6 @@ export type MedicalInsuranceTier = "none" | "oneMember" | "twoMembers";
 export interface SalaryInput {
   annualCtc: number;
   byodChoice: YesNo;
-  carPerksChoice: YesNo;
   carRentalChoice: YesNo;
   carRentalAmount: number;
   npsRate: NpsRate;

@@ -71,7 +71,7 @@ npm run dev
 - Gratuity = `4.81% of basic`
 - BYOD = `1500` when selected
 - Car perks = `1800` when selected
-- Car rental is capped at `70%` of special allowance before car rental
+- Car rental is capped at `95%` of special allowance before car rental
 - Tax slabs follow the image you shared:
   - `0 - 4,00,000`: 0%
   - `4,00,001 - 8,00,000`: 5%
@@ -86,9 +86,9 @@ npm run dev
 
 ## Important assumptions
 
-- The workbook and written instructions conflict slightly on bonus and car-rental handling. This implementation follows your written rule for bonus and treats car rental as the total monthly amount, with `1800` carved out first when car perks are enabled.
+- The workbook and written instructions conflict slightly on bonus and car-rental handling. This implementation follows your written rule for bonus and automatically applies `1800` as car perks whenever car rental is enabled.
 - VPF, medical insurance, and loans/advances reduce special allowance before final gross salary and tax are calculated.
-- Negative special allowance is blocked and surfaced to the user through visible warnings and toast messages.
+- Negative special allowance is allowed to flow through into gross salary and is surfaced to the user through visible warnings and toast messages.
 
 ## Run locally
 
