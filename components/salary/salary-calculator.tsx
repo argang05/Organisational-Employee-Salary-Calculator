@@ -392,6 +392,9 @@ function StepTwo({
                 ? formatCurrency(breakdown.specialAllowanceBeforeAdjustments)
                 : formatCurrency(0)
             }
+            negative={Boolean(
+              breakdown && breakdown.specialAllowanceBeforeAdjustments < 0,
+            )}
           />
           <MiniPanel
             icon={ShieldPlus}
@@ -401,6 +404,9 @@ function StepTwo({
                 ? formatCurrency(breakdown.specialAllowanceAfterAdjustments)
                 : formatCurrency(0)
             }
+            negative={Boolean(
+              breakdown && breakdown.specialAllowanceAfterAdjustments < 0,
+            )}
           />
           <MiniPanel
             icon={CarFront}
@@ -515,6 +521,9 @@ function SummaryCard({ result }: { result: SalaryResponse | null }) {
             <SummaryRow
               label="Special allowance"
               value={breakdown?.specialAllowanceAfterAdjustments}
+              negative={Boolean(
+                breakdown && breakdown.specialAllowanceAfterAdjustments < 0,
+              )}
             />
             <SummaryRow label="Net annual tax" value={breakdown?.netAnnualTax} />
             <SummaryRow label="Total deductions" value={breakdown?.totalDeductions} />
@@ -581,14 +590,18 @@ function TaxCard({ result }: { result: SalaryResponse | null }) {
 function SummaryRow({
   label,
   value,
+  negative = false,
 }: {
   label: string;
   value: number | undefined;
+  negative?: boolean;
 }) {
   return (
     <TableRow>
-      <TableCell className="font-medium">{label}</TableCell>
-      <TableCell className="text-right">
+      <TableCell className={cn("font-medium", negative && "text-destructive")}>
+        {label}
+      </TableCell>
+      <TableCell className={cn("text-right", negative && "font-semibold text-destructive")}>
         {typeof value === "number" ? formatCurrency(value) : formatCurrency(0)}
       </TableCell>
     </TableRow>
@@ -610,11 +623,36 @@ function SalarySnapshot({
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         {items.map(([label, value]) => (
-          <div key={label} className="rounded-2xl bg-white/80 p-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+          <div
+            key={label}
+            className={cn(
+              "rounded-2xl bg-white/80 p-4",
+              label.toLowerCase().includes("special allowance") &&
+                typeof value === "number" &&
+                value < 0 &&
+                "border border-destructive/25 bg-destructive/10",
+            )}
+          >
+            <p
+              className={cn(
+                "text-xs uppercase tracking-[0.16em] text-muted-foreground",
+                label.toLowerCase().includes("special allowance") &&
+                  typeof value === "number" &&
+                  value < 0 &&
+                  "text-destructive",
+              )}
+            >
               {label}
             </p>
-            <p className="mt-2 text-lg font-semibold">
+            <p
+              className={cn(
+                "mt-2 text-lg font-semibold",
+                label.toLowerCase().includes("special allowance") &&
+                  typeof value === "number" &&
+                  value < 0 &&
+                  "text-destructive",
+              )}
+            >
               {typeof value === "number" ? formatCurrency(value) : formatCurrency(0)}
             </p>
           </div>
@@ -676,18 +714,32 @@ function MiniPanel({
   icon: Icon,
   title,
   value,
+  negative = false,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   value: string;
+  negative?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-white/85 p-4">
-      <Icon className="h-5 w-5 text-primary" />
-      <p className="mt-3 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+    <div
+      className={cn(
+        "rounded-2xl border border-border/70 bg-white/85 p-4",
+        negative && "border-destructive/30 bg-destructive/10",
+      )}
+    >
+      <Icon className={cn("h-5 w-5 text-primary", negative && "text-destructive")} />
+      <p
+        className={cn(
+          "mt-3 text-xs uppercase tracking-[0.16em] text-muted-foreground",
+          negative && "text-destructive",
+        )}
+      >
         {title}
       </p>
-      <p className="mt-2 text-lg font-semibold">{value}</p>
+      <p className={cn("mt-2 text-lg font-semibold", negative && "text-destructive")}>
+        {value}
+      </p>
     </div>
   );
 }
