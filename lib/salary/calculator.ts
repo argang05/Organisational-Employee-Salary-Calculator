@@ -219,7 +219,9 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
   const totalDeductions = round2(
     remainingCarRental + professionalTaxMonthly + netMonthlyTax + pf,
   );
-  const netInHandMonthly = round2(grossSalaryAfterAdjustments - totalDeductions);
+  const netInHandMonthly = round2(
+    grossSalaryAfterAdjustments + byod - totalDeductions,
+  );
 
   if (specialAllowanceBeforeAdjustments > 0 && totalSpecialAllowanceAdjustments > 0) {
     warnings.push(

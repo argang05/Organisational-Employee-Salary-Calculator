@@ -69,7 +69,7 @@ npm run dev
 - LTA = `10% of basic`
 - Bonus = `8.33% of basic` when annual CTC is below `504000` or basic is below `21000`
 - Gratuity = `4.81% of basic`
-- BYOD = `1500` when selected
+- BYOD = `1500` when selected, and it is included in taxable income as well as monthly net in hand
 - Car perks = `1800` when selected
 - Car rental is capped at `95%` of special allowance before car rental
 - Tax slabs follow the image you shared:
