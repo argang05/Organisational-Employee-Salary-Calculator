@@ -216,9 +216,7 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
     input.professionalTaxChoice === "yes"
       ? round2(PROFESSIONAL_TAX_MONTHLY)
       : 0;
-  const totalDeductions = round2(
-    remainingCarRental + professionalTaxMonthly + netMonthlyTax + pf,
-  );
+  const totalDeductions = round2(professionalTaxMonthly + netMonthlyTax + pf);
   const netInHandMonthly = round2(
     grossSalaryAfterAdjustments + byod - totalDeductions,
   );
