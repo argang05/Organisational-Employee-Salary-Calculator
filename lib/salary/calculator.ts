@@ -77,7 +77,8 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
   const assumptions = [
     "Bonus is applied when annual CTC is below Rs. 5,04,000 or when monthly basic is below Rs. 21,000, based on your written rule.",
     "Car perks of Rs. 1,800 are applied automatically whenever car rental is enabled.",
-    "VPF, medical insurance, and loans/advances are treated as monthly reductions from special allowance before final gross and tax are calculated.",
+    "VPF, medical insurance, and loans/advances are treated as monthly deductions from net in hand, not from special allowance.",
+    "Because Dearness Allowance is not captured in this calculator, the VPF cap is calculated monthly against basic salary only.",
   ];
 
   if (input.annualCtc <= 0) {
@@ -110,7 +111,12 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
         netAnnualTax: 0,
         netMonthlyTax: 0,
         professionalTaxMonthly: 0,
+        vpfMonthly: 0,
         medicalInsuranceMonthly: 0,
+        loanAndAdvanceMonthly: 0,
+        maxVpfAllowed: 0,
+        maxLoanAdvanceAllowed: 0,
+        netInHandBeforeOptionalDeductions: 0,
         totalDeductions: 0,
         netInHandMonthly: 0,
       },
@@ -175,23 +181,12 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
     );
   }
 
-  const vpfAmount = input.vpfAmount;
   const medicalInsuranceMonthly = getMedicalInsuranceMonthly(
     input.medicalInsuranceTier,
   );
-  const loanAndAdvanceAmount = input.loanAndAdvanceAmount;
-  const totalSpecialAllowanceAdjustments = round2(
-    vpfAmount + medicalInsuranceMonthly + loanAndAdvanceAmount,
-  );
   const specialAllowanceAfterAdjustments = round2(
-    specialAllowanceBeforeAdjustments - totalSpecialAllowanceAdjustments,
+    specialAllowanceBeforeAdjustments,
   );
-
-  if (specialAllowanceAfterAdjustments < 0) {
-    warnings.push(
-      "The selected VPF, medical insurance, or loan amount makes special allowance negative, and the gross salary has been reduced accordingly.",
-    );
-  }
 
   const grossSalaryBeforeAdjustments = round2(
     basic + hra + lta + bonusAllowance + specialAllowanceBeforeAdjustments,
@@ -216,14 +211,48 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
     input.professionalTaxChoice === "yes"
       ? round2(PROFESSIONAL_TAX_MONTHLY)
       : 0;
-  const totalDeductions = round2(professionalTaxMonthly + netMonthlyTax + pf);
-  const netInHandMonthly = round2(
-    grossSalaryAfterAdjustments + byod - totalDeductions,
+  const baseDeductions = round2(professionalTaxMonthly + netMonthlyTax + pf);
+  const netInHandBeforeOptionalDeductions = round2(
+    grossSalaryAfterAdjustments + byod - baseDeductions,
+  );
+  const maxVpfAllowed = round2(Math.max(0, Math.min(basic, netInHandBeforeOptionalDeductions)));
+  let vpfAmount = round2(Math.min(input.vpfAmount, maxVpfAllowed));
+
+  if (input.vpfAmount > maxVpfAllowed) {
+    warnings.push(
+      `VPF exceeds the allowed monthly limit. It has been capped at Rs. ${maxVpfAllowed.toLocaleString("en-IN")}.`,
+    );
+  }
+
+  const maxLoanAdvanceAllowed = round2(
+    Math.max(
+      0,
+      Math.min(
+        netInHandBeforeOptionalDeductions - vpfAmount - medicalInsuranceMonthly,
+        netInHandBeforeOptionalDeductions * 0.7,
+      ),
+    ),
+  );
+  let loanAndAdvanceAmount = round2(
+    Math.min(input.loanAndAdvanceAmount, maxLoanAdvanceAllowed),
   );
 
-  if (specialAllowanceBeforeAdjustments > 0 && totalSpecialAllowanceAdjustments > 0) {
+  if (input.loanAndAdvanceAmount > maxLoanAdvanceAllowed) {
     warnings.push(
-      "VPF, medical insurance, and loans/advances are reducing special allowance in real time.",
+      `Loans and advances exceed the allowed monthly limit. They have been capped at Rs. ${maxLoanAdvanceAllowed.toLocaleString("en-IN")}.`,
+    );
+  }
+
+  const totalDeductions = round2(
+    baseDeductions + vpfAmount + medicalInsuranceMonthly + loanAndAdvanceAmount,
+  );
+  const netInHandMonthly = round2(
+    Math.max(0, grossSalaryAfterAdjustments + byod - totalDeductions),
+  );
+
+  if (medicalInsuranceMonthly + vpfAmount + loanAndAdvanceAmount > 0) {
+    warnings.push(
+      "VPF, medical insurance, and loans/advances are being deducted from net in hand.",
     );
   }
 
@@ -254,7 +283,12 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
     netAnnualTax,
     netMonthlyTax,
     professionalTaxMonthly,
+    vpfMonthly: vpfAmount,
     medicalInsuranceMonthly,
+    loanAndAdvanceMonthly: loanAndAdvanceAmount,
+    maxVpfAllowed,
+    maxLoanAdvanceAllowed,
+    netInHandBeforeOptionalDeductions,
     totalDeductions,
     netInHandMonthly,
   };

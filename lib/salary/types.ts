@@ -43,7 +43,12 @@ export interface SalaryBreakdown {
   netAnnualTax: number;
   netMonthlyTax: number;
   professionalTaxMonthly: number;
+  vpfMonthly: number;
   medicalInsuranceMonthly: number;
+  loanAndAdvanceMonthly: number;
+  maxVpfAllowed: number;
+  maxLoanAdvanceAllowed: number;
+  netInHandBeforeOptionalDeductions: number;
   totalDeductions: number;
   netInHandMonthly: number;
 }

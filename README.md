@@ -72,6 +72,8 @@ npm run dev
 - BYOD = `1500` when selected, and it is included in taxable income as well as monthly net in hand
 - Car perks = `1800` when selected
 - Car rental is capped at `95%` of special allowance before car rental
+- VPF is deducted from monthly net in hand and capped monthly at basic salary in this calculator because DA is not captured
+- Loans and advances are deducted from monthly net in hand and capped at `70%` of net in hand
 - Tax slabs follow the image you shared:
   - `0 - 4,00,000`: 0%
   - `4,00,001 - 8,00,000`: 5%
@@ -87,7 +89,7 @@ npm run dev
 ## Important assumptions
 
 - The workbook and written instructions conflict slightly on bonus and car-rental handling. This implementation follows your written rule for bonus and automatically applies `1800` as car perks whenever car rental is enabled.
-- VPF, medical insurance, and loans/advances reduce special allowance before final gross salary and tax are calculated.
+- VPF, medical insurance, and loans/advances reduce monthly net in hand after salary and tax are calculated.
 - Negative special allowance is allowed to flow through into gross salary and is surfaced to the user through visible warnings and toast messages.
 
 ## Run locally

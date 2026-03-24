@@ -377,16 +377,16 @@ function StepTwo({
       <CardHeader>
         <CardTitle>Step 2: Choice-based deductions</CardTitle>
         <CardDescription>
-          Previous figures stay visible here, especially special allowance. Any
-          change that risks making it negative is validated server-side and
-          surfaced immediately.
+          Special allowance stays unchanged here. VPF, medical insurance, and
+          loans are now deducted from net in hand with live caps applied on the
+          server.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
         <div className="grid gap-4 md:grid-cols-3">
           <MiniPanel
             icon={IndianRupee}
-            title="Special allowance before choices"
+            title="Current special allowance"
             value={
               breakdown
                 ? formatCurrency(breakdown.specialAllowanceBeforeAdjustments)
@@ -398,15 +398,12 @@ function StepTwo({
           />
           <MiniPanel
             icon={ShieldPlus}
-            title="Special allowance after choices"
+            title="Net in hand before optional deductions"
             value={
               breakdown
-                ? formatCurrency(breakdown.specialAllowanceAfterAdjustments)
+                ? formatCurrency(breakdown.netInHandBeforeOptionalDeductions)
                 : formatCurrency(0)
             }
-            negative={Boolean(
-              breakdown && breakdown.specialAllowanceAfterAdjustments < 0,
-            )}
           />
           <MiniPanel
             icon={CarFront}
@@ -419,7 +416,14 @@ function StepTwo({
 
         <div className="grid gap-5 md:grid-cols-2">
           <Field>
-            <Label htmlFor="vpfAmount">VPF amount</Label>
+            <Label htmlFor="vpfAmount">
+              VPF amount
+              {breakdown ? (
+                <span className="ml-2 text-xs text-muted-foreground">
+                  Max {formatCurrency(breakdown.maxVpfAllowed)}
+                </span>
+              ) : null}
+            </Label>
             <Input
               id="vpfAmount"
               type="number"
@@ -430,6 +434,10 @@ function StepTwo({
               }
               placeholder="0"
             />
+            <p className="text-xs text-muted-foreground">
+              VPF is deducted from net in hand and capped monthly using basic
+              salary because DA is not part of this calculator.
+            </p>
           </Field>
 
           <Field>
@@ -451,7 +459,14 @@ function StepTwo({
           </Field>
 
           <Field>
-            <Label htmlFor="loanAndAdvanceAmount">Loans and advances</Label>
+            <Label htmlFor="loanAndAdvanceAmount">
+              Loans and advances
+              {breakdown ? (
+                <span className="ml-2 text-xs text-muted-foreground">
+                  Max {formatCurrency(breakdown.maxLoanAdvanceAllowed)}
+                </span>
+              ) : null}
+            </Label>
             <Input
               id="loanAndAdvanceAmount"
               type="number"
@@ -462,6 +477,10 @@ function StepTwo({
               }
               placeholder="0"
             />
+            <p className="text-xs text-muted-foreground">
+              Loans and advances are capped at 70% of net in hand, while also
+              ensuring net in hand does not become negative.
+            </p>
           </Field>
         </div>
 
@@ -470,6 +489,7 @@ function StepTwo({
           items={[
             ["Gross salary", breakdown?.grossSalaryAfterAdjustments],
             ["Net taxable income", breakdown?.annualTaxableIncome],
+            ["Net in hand before optional deductions", breakdown?.netInHandBeforeOptionalDeductions],
             ["Net monthly tax", breakdown?.netMonthlyTax],
             ["Total deductions", breakdown?.totalDeductions],
             ["Net in hand monthly", breakdown?.netInHandMonthly],
@@ -527,6 +547,10 @@ function SummaryCard({ result }: { result: SalaryResponse | null }) {
             />
             <SummaryRow label="Net annual tax" value={breakdown?.netAnnualTax} />
             <SummaryRow label="Total deductions" value={breakdown?.totalDeductions} />
+            <SummaryRow
+              label="Net in hand before optional deductions"
+              value={breakdown?.netInHandBeforeOptionalDeductions}
+            />
             <SummaryRow label="Net in hand monthly" value={breakdown?.netInHandMonthly} />
           </TableBody>
         </Table>
@@ -579,7 +603,9 @@ function TaxCard({ result }: { result: SalaryResponse | null }) {
             <SummaryRow label="Education cess" value={breakdown?.educationCess} />
             <SummaryRow label="Professional tax" value={breakdown?.professionalTaxMonthly} />
             <SummaryRow label="PF" value={breakdown?.pf} />
-            <SummaryRow label="Car rental deduction" value={breakdown?.remainingCarRental} />
+            <SummaryRow label="VPF" value={breakdown?.vpfMonthly} />
+            <SummaryRow label="Medical insurance" value={breakdown?.medicalInsuranceMonthly} />
+            <SummaryRow label="Loans and advances" value={breakdown?.loanAndAdvanceMonthly} />
           </TableBody>
         </Table>
       </CardContent>
