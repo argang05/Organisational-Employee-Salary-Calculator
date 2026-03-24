@@ -1,6 +1,12 @@
 import type {
+  ComparisonInput,
+  ComparisonYearInput,
+  ComparisonResponse,
   MedicalInsuranceTier,
+  PreviousYearNpsRate,
   SalaryBreakdown,
+  SalaryComparison,
+  SalaryComparisonColumn,
   SalaryInput,
   SalaryResponse,
 } from "@/lib/salary/types";
@@ -61,6 +67,124 @@ function getSlabTax(netTaxableIncome: number) {
   }
 
   return round2(tax);
+}
+
+function calculateComparisonColumn({
+  input,
+  basicRatio,
+  minimumBasic,
+  forceTwelvePercentPf,
+}: {
+  input: ComparisonYearInput;
+  basicRatio: number;
+  minimumBasic: number;
+  forceTwelvePercentPf?: boolean;
+}): { column: SalaryComparisonColumn; warnings: string[] } {
+  const warnings: string[] = [];
+  const annualCtc = clampMoney(input.annualCtc);
+  const monthlyCtc = Math.ceil(annualCtc / 12);
+  const basic = round(Math.max(monthlyCtc * basicRatio, minimumBasic));
+  const hra = round(basic * 0.4);
+  const lta = round(basic * 0.1);
+  const bonus = round(annualCtc < 504_000 || basic < 21_000 ? basic * 0.0833 : 0);
+  const carPerks = input.carRentalChoice === "yes" ? CAR_PERKS_AMOUNT : 0;
+  const pf =
+    forceTwelvePercentPf
+      ? round(basic * 0.12)
+      : input.pfMode === "fixed1800"
+      ? 1800
+      : input.pfMode === "twelvePercent"
+        ? round(basic * 0.12)
+        : 0;
+  const gratuity = round(basic * 0.0481);
+  const nps = input.npsRate > 0 ? round((basic * Number(input.npsRate)) / 100) : 0;
+  const preRentalSpecialAllowance =
+    monthlyCtc - basic - hra - lta - bonus - carPerks - pf - gratuity - nps;
+  const maxCarRentalAllowed = Math.max(0, round2(preRentalSpecialAllowance * 0.95));
+  const carRentalAmount =
+    input.carRentalChoice === "yes"
+      ? Math.min(clampMoney(input.carRentalAmount), maxCarRentalAllowed)
+      : 0;
+  if (input.carRentalChoice === "yes" && clampMoney(input.carRentalAmount) > maxCarRentalAllowed) {
+    warnings.push(
+      `Car rental has been capped at Rs. ${maxCarRentalAllowed.toLocaleString("en-IN")}.`,
+    );
+  }
+  const specialAllowance = round(
+    preRentalSpecialAllowance - carRentalAmount,
+  );
+  const grossSalary = round(basic + hra + lta + specialAllowance + bonus);
+  const otherBenefits = round(pf + gratuity + nps);
+  const subtotal = round(grossSalary + otherBenefits);
+  const annualTaxableIncome = Math.max(0, grossSalary * 12 - STANDARD_DEDUCTION);
+  const annualIncomeTax = getSlabTax(annualTaxableIncome);
+  const educationCess = round2(annualIncomeTax * 0.04);
+  const incomeTax = round((annualIncomeTax + educationCess) / 12);
+  const professionalTax = round(PROFESSIONAL_TAX_MONTHLY);
+  const baseNetInHand = grossSalary - (pf + professionalTax + incomeTax);
+  const maxVpfAllowed = Math.max(0, Math.min(basic, baseNetInHand));
+  const vpf = round2(Math.min(clampMoney(input.vpfAmount), maxVpfAllowed));
+  if (clampMoney(input.vpfAmount) > maxVpfAllowed) {
+    warnings.push(
+      `VPF has been capped at Rs. ${maxVpfAllowed.toLocaleString("en-IN")}.`,
+    );
+  }
+  const medicalInsurance = getMedicalInsuranceMonthly(input.medicalInsuranceTier);
+  const maxLoanAdvanceAllowed = Math.max(
+    0,
+    Math.min(baseNetInHand - vpf - medicalInsurance, baseNetInHand * 0.7),
+  );
+  const loansAndAdvances = round2(
+    Math.min(clampMoney(input.loanAndAdvanceAmount), maxLoanAdvanceAllowed),
+  );
+  if (clampMoney(input.loanAndAdvanceAmount) > maxLoanAdvanceAllowed) {
+    warnings.push(
+      `Loans and advances have been capped at Rs. ${maxLoanAdvanceAllowed.toLocaleString("en-IN")}.`,
+    );
+  }
+  const remainingCarRental = round2(Math.max(0, carRentalAmount - carPerks));
+  const employeeDeduction = round(
+    pf +
+      professionalTax +
+      incomeTax +
+      remainingCarRental +
+      vpf +
+      medicalInsurance +
+      loansAndAdvances,
+  );
+  const netSalary = round(Math.max(0, grossSalary - employeeDeduction));
+
+  return {
+    warnings,
+    column: {
+    annualCtc: round(annualCtc),
+    monthlyCtc,
+    basic,
+    hra,
+    lta,
+    carPerks,
+    carRentalAmount: round2(carRentalAmount),
+    remainingCarRental,
+    maxCarRentalAllowed,
+    specialAllowance,
+    bonus,
+    grossSalary,
+    pf,
+    gratuity,
+    nps,
+    vpf,
+    medicalInsurance,
+    loansAndAdvances,
+    maxVpfAllowed: round2(maxVpfAllowed),
+    maxLoanAdvanceAllowed: round2(maxLoanAdvanceAllowed),
+    otherBenefits,
+    subtotal,
+    professionalTax,
+    incomeTax,
+    employeeDeduction,
+    netSalary,
+    },
+  };
 }
 
 export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
@@ -296,6 +420,81 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
   return {
     input,
     breakdown,
+    warnings,
+    errors,
+    assumptions,
+  };
+}
+
+export function calculateSalaryComparison(
+  rawInput: ComparisonInput,
+): ComparisonResponse {
+  const input: ComparisonInput = {
+    currentYear: {
+      ...rawInput.currentYear,
+      annualCtc: clampMoney(rawInput.currentYear.annualCtc),
+      carRentalAmount: clampMoney(rawInput.currentYear.carRentalAmount),
+      vpfAmount: clampMoney(rawInput.currentYear.vpfAmount),
+      loanAndAdvanceAmount: clampMoney(rawInput.currentYear.loanAndAdvanceAmount),
+    },
+    previousYear: {
+      ...rawInput.previousYear,
+      annualCtc: clampMoney(rawInput.previousYear.annualCtc),
+      carRentalAmount: clampMoney(rawInput.previousYear.carRentalAmount),
+      vpfAmount: clampMoney(rawInput.previousYear.vpfAmount),
+      loanAndAdvanceAmount: clampMoney(rawInput.previousYear.loanAndAdvanceAmount),
+    },
+  };
+
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  const assumptions = [
+    "This comparison module uses a core monthly salary comparison only.",
+    "The 2025-26 side uses 30% basic with a minimum of Rs. 16,000 per month.",
+    "Professional tax is always applied in the comparison module.",
+    "Car rental is split into Rs. 1,800 company car perks and the remaining amount as employee deduction.",
+    "The 2025-26 side always uses PF at 12% of basic and only allows NPS as No, 10%, or 14%.",
+  ];
+
+  let currentYear: SalaryComparisonColumn | null = null;
+  let previousYear: SalaryComparisonColumn | null = null;
+
+  if (input.currentYear.annualCtc > 0) {
+    const currentYearResult = calculateComparisonColumn({
+      input: input.currentYear,
+      basicRatio: 0.5,
+      minimumBasic: 17_000,
+    });
+    currentYear = currentYearResult.column;
+    warnings.push(...currentYearResult.warnings.map((warning) => `2026-27: ${warning}`));
+  }
+
+  if (input.previousYear.annualCtc > 0) {
+    if (input.previousYear.annualCtc < 350_000) {
+      warnings.push(
+        "2025-26 comparison is not calculated for annual CTC below Rs. 3,50,000.",
+      );
+    } else {
+      const previousYearResult = calculateComparisonColumn({
+        input: input.previousYear,
+        basicRatio: 0.3,
+        minimumBasic: 16_000,
+        forceTwelvePercentPf: true,
+      });
+      previousYear = previousYearResult.column;
+      warnings.push(...previousYearResult.warnings.map((warning) => `2025-26: ${warning}`));
+    }
+  }
+
+  const comparison: SalaryComparison = {
+    previousYear,
+    currentYear,
+    warnings,
+  };
+
+  return {
+    input,
+    comparison,
     warnings,
     errors,
     assumptions,

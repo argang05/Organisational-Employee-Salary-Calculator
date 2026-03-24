@@ -7,6 +7,7 @@ import {
   Calculator,
   CarFront,
   CircleAlert,
+  GitCompareArrows,
   IndianRupee,
   Landmark,
   ShieldPlus,
@@ -29,18 +30,41 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
 import { calculateSalary } from "@/lib/salary/calculator";
-import { defaultSalaryInput } from "@/lib/salary/defaults";
-import type { SalaryInput, SalaryResponse } from "@/lib/salary/types";
+import { defaultComparisonInput, defaultSalaryInput } from "@/lib/salary/defaults";
+import type {
+  ComparisonInput,
+  ComparisonResponse,
+  ComparisonYearInput,
+  SalaryComparisonColumn,
+  SalaryInput,
+  SalaryResponse,
+} from "@/lib/salary/types";
 import { cn, formatCurrency } from "@/lib/utils";
+
+const comparisonCurrencyFormatter = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
+});
+
+function formatComparisonCurrency(value: number) {
+  return comparisonCurrencyFormatter.format(value);
+}
 
 export function SalaryCalculator() {
   const { toast } = useToast();
   const [step, setStep] = React.useState<1 | 2>(1);
+  const [mode, setMode] = React.useState<"calculator" | "comparison">("calculator");
   const [form, setForm] = React.useState<SalaryInput>(defaultSalaryInput);
+  const [comparisonForm, setComparisonForm] =
+    React.useState<ComparisonInput>(defaultComparisonInput);
   const [result, setResult] = React.useState<SalaryResponse | null>(() =>
     calculateSalary(defaultSalaryInput),
   );
+  const [comparisonResult, setComparisonResult] =
+    React.useState<ComparisonResponse | null>(null);
   const [isPending, startTransition] = React.useTransition();
+  const [isComparisonPending, startComparisonTransition] = React.useTransition();
   const lastToastKeyRef = React.useRef<string>("");
 
   React.useEffect(() => {
@@ -88,10 +112,56 @@ export function SalaryCalculator() {
     return () => window.clearTimeout(handle);
   }, [form, toast]);
 
+  React.useEffect(() => {
+    if (mode !== "comparison") {
+      return;
+    }
+
+    const handle = window.setTimeout(() => {
+      async function runComparison() {
+        const response = await fetch("/api/salary/compare", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(comparisonForm),
+        });
+
+        const data = (await response.json()) as ComparisonResponse;
+        setComparisonResult(data);
+      }
+
+      startComparisonTransition(() => {
+        void runComparison();
+      });
+    }, 250);
+
+    return () => window.clearTimeout(handle);
+  }, [comparisonForm, mode]);
+
   const breakdown = result?.breakdown;
+  const comparison = comparisonResult?.comparison;
+  const comparisonCurrentYear = comparison?.currentYear;
 
   function setField<K extends keyof SalaryInput>(field: K, value: SalaryInput[K]) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function setComparisonField<
+    Y extends keyof ComparisonInput,
+    K extends keyof ComparisonInput[Y],
+  >(
+    year: Y,
+    field: K,
+    value: ComparisonInput[Y][K],
+  ) {
+    setComparisonForm((current) => ({
+      ...current,
+      [year]: {
+        ...current[year],
+        [field]: value,
+      },
+    }));
   }
 
   return (
@@ -103,32 +173,57 @@ export function SalaryCalculator() {
               <Badge className="bg-white/14 text-white">Salary Architecture</Badge>
               <div className="mt-6 max-w-2xl space-y-4">
                 <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-                  Salary Calculator for Indian payroll structures
+                  {mode === "comparison"
+                    ? "Salary Appraisal Comparison for two financial years"
+                    : "Salary Calculator for Indian payroll structures"}
                 </h1>
                 <p className="text-sm leading-7 text-white/80 md:text-base">
-                  Fixed annual CTC goes in first. Salary structure, employer
-                  contribution, tax, optional benefits, and net in hand are
-                  calculated on the server and reflected instantly in the UI.
+                  {mode === "comparison"
+                    ? "Compare monthly salary structure, benefits, and deductions for 2025-26 and 2026-27 with dedicated inputs for each year."
+                    : "Fixed annual CTC goes in first. Salary structure, employer contribution, tax, optional benefits, and net in hand are calculated on the server and reflected instantly in the UI."}
                 </p>
               </div>
               <div className="mt-8 grid gap-4 md:grid-cols-3">
                 <HeroStat
                   icon={Calculator}
-                  label="Monthly CTC"
-                  value={breakdown ? formatCurrency(breakdown.monthlyCtc) : formatCurrency(0)}
+                  label={mode === "comparison" ? "2026-27 Net Salary" : "Monthly CTC"}
+                  value={
+                    mode === "comparison"
+                      ? comparisonCurrentYear
+                        ? formatCurrency(comparisonCurrentYear.netSalary)
+                        : formatCurrency(0)
+                      : breakdown
+                        ? formatCurrency(breakdown.monthlyCtc)
+                        : formatCurrency(0)
+                  }
                 />
                 <HeroStat
                   icon={ShieldPlus}
-                  label="Basic Salary"
+                  label={mode === "comparison" ? "2025-26 Net Salary" : "Basic Salary"}
                   value={
-                    breakdown ? formatCurrency(breakdown.basic) : formatCurrency(0)
+                    mode === "comparison"
+                      ? comparison?.previousYear
+                        ? formatCurrency(comparison.previousYear.netSalary)
+                        : formatCurrency(0)
+                      : breakdown
+                        ? formatCurrency(breakdown.basic)
+                        : formatCurrency(0)
                   }
                 />
                 <HeroStat
                   icon={Landmark}
-                  label="Net In Hand"
+                  label={mode === "comparison" ? "Net Salary Difference" : "Net In Hand"}
                   value={
-                    breakdown ? formatCurrency(breakdown.netInHandMonthly) : formatCurrency(0)
+                    mode === "comparison"
+                      ? comparisonCurrentYear && comparison?.previousYear
+                        ? formatCurrency(
+                            comparisonCurrentYear.netSalary -
+                              comparison.previousYear.netSalary,
+                          )
+                        : formatCurrency(0)
+                      : breakdown
+                        ? formatCurrency(breakdown.netInHandMonthly)
+                        : formatCurrency(0)
                   }
                   highlight
                 />
@@ -139,46 +234,80 @@ export function SalaryCalculator() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Two-step flow</CardTitle>
+                    <CardTitle>
+                      {mode === "comparison" ? "Comparison Mode" : "Two-step flow"}
+                    </CardTitle>
                     <CardDescription>
-                      Step 1 sets the structure. Step 2 applies employee choices.
+                      {mode === "comparison"
+                        ? "Switch back to the salary calculator anytime, or stay here to compare both years."
+                        : "Step 1 sets the structure. Step 2 applies employee choices."}
                     </CardDescription>
                   </div>
-                  <Badge>{`Step ${step} of 2`}</Badge>
+                  <Badge>{mode === "comparison" ? "Compare" : `Step ${step} of 2`}</Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-5">
-                <StepPill
-                  active={step === 1}
-                  index={1}
-                  title="Core salary structure"
-                  description="CTC, BYOD, PF, NPS, and car rental."
-                />
-                <StepPill
-                  active={step === 2}
-                  index={2}
-                  title="Employee deductions"
-                  description="VPF, medical insurance, loans, tax, and net salary."
-                />
-                <div className="flex gap-3">
+                {mode === "calculator" ? (
+                  <>
+                    <StepPill
+                      active={step === 1}
+                      index={1}
+                      title="Core salary structure"
+                      description="CTC, BYOD, PF, NPS, and car rental."
+                    />
+                    <StepPill
+                      active={step === 2}
+                      index={2}
+                      title="Employee deductions"
+                      description="VPF, medical insurance, loans, tax, and net salary."
+                    />
+                  </>
+                ) : (
+                  <StepPill
+                    active
+                    index={3}
+                    title="Compare Salary Appraisal"
+                    description="Two dedicated year sections feed the comparison table below."
+                  />
+                )}
+                <div className="grid gap-3 md:grid-cols-3">
                   <Button
-                    variant={step === 1 ? "default" : "outline"}
-                    onClick={() => setStep(1)}
+                    variant={mode === "calculator" && step === 1 ? "default" : "outline"}
+                    onClick={() => {
+                      setMode("calculator");
+                      setStep(1);
+                    }}
                     className="flex-1"
                   >
                     Structure
                   </Button>
                   <Button
-                    variant={step === 2 ? "default" : "outline"}
-                    onClick={() => setStep(2)}
+                    variant={mode === "calculator" && step === 2 ? "default" : "outline"}
+                    onClick={() => {
+                      setMode("calculator");
+                      setStep(2);
+                    }}
                     className="flex-1"
                   >
                     Deductions
                   </Button>
+                  <Button
+                    variant={mode === "comparison" ? "default" : "outline"}
+                    onClick={() => setMode("comparison")}
+                    className="flex-1 gap-2"
+                  >
+                    <GitCompareArrows className="h-4 w-4" />
+                    Compare Appraisal
+                  </Button>
                 </div>
-                {isPending ? (
+                {mode === "calculator" && isPending ? (
                   <p className="text-sm text-muted-foreground">
                     Recalculating figures...
+                  </p>
+                ) : null}
+                {mode === "comparison" && isComparisonPending ? (
+                  <p className="text-sm text-muted-foreground">
+                    Recalculating comparison...
                   </p>
                 ) : null}
               </CardContent>
@@ -186,20 +315,29 @@ export function SalaryCalculator() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <div className="space-y-6">
-            {step === 1 ? (
-              <StepOne form={form} setField={setField} breakdown={breakdown} />
-            ) : (
-              <StepTwo form={form} setField={setField} breakdown={breakdown} />
-            )}
-          </div>
+        {mode === "calculator" ? (
+          <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+            <div className="space-y-6">
+              {step === 1 ? (
+                <StepOne form={form} setField={setField} breakdown={breakdown} />
+              ) : (
+                <StepTwo form={form} setField={setField} breakdown={breakdown} />
+              )}
+            </div>
 
-          <div className="space-y-6">
-            <SummaryCard result={result} />
-            <TaxCard result={result} />
+            <div className="space-y-6">
+              <SummaryCard result={result} />
+              <TaxCard result={result} />
+            </div>
           </div>
-        </div>
+        ) : (
+          <ComparisonModule
+            form={comparisonForm}
+            setField={setComparisonField}
+            result={comparisonResult}
+            isPending={isComparisonPending}
+          />
+        )}
       </div>
     </div>
   );
@@ -226,7 +364,7 @@ function StepOne({
       <CardContent className="space-y-8">
         <div className="grid gap-5 md:grid-cols-2">
           <Field>
-            <Label htmlFor="annualCtc">Fixed annual CTC</Label>
+            <Label htmlFor="annualCtc">Fixed annual CTC 2026-27</Label>
             <Input
               id="annualCtc"
               type="number"
@@ -610,6 +748,462 @@ function TaxCard({ result }: { result: SalaryResponse | null }) {
         </Table>
       </CardContent>
     </Card>
+  );
+}
+
+function ComparisonCardTable({ result }: { result: ComparisonResponse | null }) {
+  const comparison = result?.comparison;
+  const currentYear = comparison?.currentYear;
+  const previousYear = comparison?.previousYear;
+
+  const rows: Array<{
+    label: string;
+    getValue: (column: SalaryComparisonColumn | null | undefined) => number;
+    emphasis?: "subtotal" | "deduction";
+  }> = [
+    { label: "Basic", getValue: (column) => column?.basic ?? 0 },
+    { label: "House Rent Allowance", getValue: (column) => column?.hra ?? 0 },
+    { label: "Leave Travel Allowance", getValue: (column) => column?.lta ?? 0 },
+    { label: "Special Allowance", getValue: (column) => column?.specialAllowance ?? 0 },
+    { label: "Bonus", getValue: (column) => column?.bonus ?? 0 },
+    {
+      label: "Total Gross Salary (A)",
+      getValue: (column) => column?.grossSalary ?? 0,
+      emphasis: "subtotal",
+    },
+    {
+      label: "Provident fund and pension scheme",
+      getValue: (column) => column?.pf ?? 0,
+    },
+    { label: "Gratuity", getValue: (column) => column?.gratuity ?? 0 },
+    { label: "NPS", getValue: (column) => column?.nps ?? 0 },
+    {
+      label: "Other Benefits (B)",
+      getValue: (column) => column?.otherBenefits ?? 0,
+      emphasis: "subtotal",
+    },
+    {
+      label: "S. Total (A+B)",
+      getValue: (column) => column?.subtotal ?? 0,
+      emphasis: "subtotal",
+    },
+    {
+      label: "Provident fund and pension scheme",
+      getValue: (column) => column?.pf ?? 0,
+    },
+    { label: "Professional Tax", getValue: (column) => column?.professionalTax ?? 0 },
+    { label: "Income Tax", getValue: (column) => column?.incomeTax ?? 0 },
+    { label: "Car Rental Deduction", getValue: (column) => column?.remainingCarRental ?? 0 },
+    { label: "VPF", getValue: (column) => column?.vpf ?? 0 },
+    { label: "Medical Insurance", getValue: (column) => column?.medicalInsurance ?? 0 },
+    { label: "Loans and Advances", getValue: (column) => column?.loansAndAdvances ?? 0 },
+    {
+      label: "Employee Deduction (C)",
+      getValue: (column) => column?.employeeDeduction ?? 0,
+      emphasis: "deduction",
+    },
+    {
+      label: "S. Total (A-C)",
+      getValue: (column) => column?.netSalary ?? 0,
+      emphasis: "subtotal",
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {comparison?.warnings?.map((warning) => (
+        <Alert key={warning}>{warning}</Alert>
+      ))}
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Particulars</TableHead>
+            <TableHead className="text-right">Monthly Breakup-2025-26</TableHead>
+            <TableHead className="text-right">Monthly Breakup-2026-27</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row, index) => (
+            <TableRow
+              key={`${row.label}-${index}`}
+              className={cn(
+                row.emphasis === "subtotal" && "bg-secondary/35 font-semibold",
+                row.emphasis === "deduction" && "bg-secondary/20 font-semibold",
+              )}
+            >
+              <TableCell className="font-medium">{row.label}</TableCell>
+              <TableCell className="text-right">
+                {previousYear
+                  ? formatComparisonCurrency(row.getValue(previousYear))
+                  : "\u2014"}
+              </TableCell>
+              <TableCell className="text-right">
+                {currentYear
+                  ? formatComparisonCurrency(row.getValue(currentYear))
+                  : "\u2014"}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function ComparisonModule({
+  form,
+  setField,
+  result,
+  isPending,
+}: {
+  form: ComparisonInput;
+  setField: <
+    Y extends keyof ComparisonInput,
+    K extends keyof ComparisonInput[Y],
+  >(
+    year: Y,
+    field: K,
+    value: ComparisonInput[Y][K],
+  ) => void;
+  result: ComparisonResponse | null;
+  isPending: boolean;
+}) {
+  const previousYearBreakdown = result?.comparison.previousYear;
+  const currentYearBreakdown = result?.comparison.currentYear;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="border-border/70 bg-secondary/20 shadow-none">
+          <CardHeader>
+            <CardTitle>2025-26</CardTitle>
+            <CardDescription>
+              Separate previous-year rules apply here.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-5 md:grid-cols-2">
+            <Field>
+              <Label htmlFor="comparePreviousAnnualCtc">Fixed annual CTC</Label>
+              <Input
+                id="comparePreviousAnnualCtc"
+                type="number"
+                min={0}
+                value={form.previousYear.annualCtc || ""}
+                onChange={(event) =>
+                  setField("previousYear", "annualCtc", Number(event.target.value) || 0)
+                }
+                placeholder="Enter 2025-26 annual CTC"
+              />
+            </Field>
+
+            <Field>
+              <Label htmlFor="comparePreviousNpsRate">NPS contribution</Label>
+              <Select
+                id="comparePreviousNpsRate"
+                value={String(form.previousYear.npsRate)}
+                onChange={(event) =>
+                  setField(
+                    "previousYear",
+                    "npsRate",
+                    Number(event.target.value) as ComparisonYearInput["npsRate"],
+                  )
+                }
+              >
+                <option value="0">No</option>
+                <option value="10">Yes - 10%</option>
+                <option value="14">Yes - 14%</option>
+              </Select>
+            </Field>
+
+            <Field>
+              <Label htmlFor="comparePreviousCarRentalChoice">Car rental option</Label>
+              <Select
+                id="comparePreviousCarRentalChoice"
+                value={form.previousYear.carRentalChoice}
+                onChange={(event) =>
+                  setField(
+                    "previousYear",
+                    "carRentalChoice",
+                    event.target.value as ComparisonYearInput["carRentalChoice"],
+                  )
+                }
+              >
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </Select>
+            </Field>
+
+            <Field>
+              <Label htmlFor="comparePreviousCarRentalAmount">Car rental amount</Label>
+              {previousYearBreakdown ? (
+                <p className="text-xs text-muted-foreground">
+                  Max {formatCurrency(previousYearBreakdown.maxCarRentalAllowed)}
+                </p>
+              ) : null}
+              <Input
+                id="comparePreviousCarRentalAmount"
+                type="number"
+                min={0}
+                disabled={form.previousYear.carRentalChoice === "no"}
+                value={form.previousYear.carRentalAmount || ""}
+                onChange={(event) =>
+                  setField(
+                    "previousYear",
+                    "carRentalAmount",
+                    Number(event.target.value) || 0,
+                  )
+                }
+                placeholder="Enter car rental amount"
+              />
+            </Field>
+
+            <Field>
+              <Label htmlFor="comparePreviousVpf">
+                VPF amount
+                {previousYearBreakdown ? (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    Max {formatCurrency(previousYearBreakdown.maxVpfAllowed)}
+                  </span>
+                ) : null}
+              </Label>
+              <Input
+                id="comparePreviousVpf"
+                type="number"
+                min={0}
+                value={form.previousYear.vpfAmount || ""}
+                onChange={(event) =>
+                  setField("previousYear", "vpfAmount", Number(event.target.value) || 0)
+                }
+                placeholder="0"
+              />
+            </Field>
+
+            <Field>
+              <Label htmlFor="comparePreviousMedical">Medical insurance</Label>
+              <Select
+                id="comparePreviousMedical"
+                value={form.previousYear.medicalInsuranceTier}
+                onChange={(event) =>
+                  setField(
+                    "previousYear",
+                    "medicalInsuranceTier",
+                    event.target.value as ComparisonYearInput["medicalInsuranceTier"],
+                  )
+                }
+              >
+                <option value="none">No</option>
+                <option value="oneMember">1 member - Rs. 833 / month</option>
+                <option value="twoMembers">2 members - Rs. 1,667 / month</option>
+              </Select>
+            </Field>
+
+            <Field>
+              <Label htmlFor="comparePreviousLoan">
+                Loans and advances
+                {previousYearBreakdown ? (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    Max {formatCurrency(previousYearBreakdown.maxLoanAdvanceAllowed)}
+                  </span>
+                ) : null}
+              </Label>
+              <Input
+                id="comparePreviousLoan"
+                type="number"
+                min={0}
+                value={form.previousYear.loanAndAdvanceAmount || ""}
+                onChange={(event) =>
+                  setField(
+                    "previousYear",
+                    "loanAndAdvanceAmount",
+                    Number(event.target.value) || 0,
+                  )
+                }
+                placeholder="0"
+              />
+            </Field>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 bg-secondary/20 shadow-none">
+          <CardHeader>
+            <CardTitle>2026-27</CardTitle>
+            <CardDescription>
+              Current-year appraisal comparison inputs.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-5 md:grid-cols-2">
+            <Field>
+              <Label htmlFor="compareCurrentAnnualCtc">Fixed annual CTC</Label>
+              <Input
+                id="compareCurrentAnnualCtc"
+                type="number"
+                min={0}
+                value={form.currentYear.annualCtc || ""}
+                onChange={(event) =>
+                  setField("currentYear", "annualCtc", Number(event.target.value) || 0)
+                }
+                placeholder="Enter 2026-27 annual CTC"
+              />
+            </Field>
+
+            <Field>
+              <Label htmlFor="compareCurrentPfMode">PF contribution</Label>
+              <Select
+                id="compareCurrentPfMode"
+                value={form.currentYear.pfMode}
+                onChange={(event) =>
+                  setField(
+                    "currentYear",
+                    "pfMode",
+                    event.target.value as ComparisonYearInput["pfMode"],
+                  )
+                }
+              >
+                <option value="fixed1800">Yes - Rs. 1,800</option>
+                <option value="twelvePercent">Yes - 12% of basic</option>
+                <option value="none">No</option>
+              </Select>
+            </Field>
+
+            <Field>
+              <Label htmlFor="compareCurrentNpsRate">NPS contribution</Label>
+              <Select
+                id="compareCurrentNpsRate"
+                value={String(form.currentYear.npsRate)}
+                onChange={(event) =>
+                  setField(
+                    "currentYear",
+                    "npsRate",
+                    Number(event.target.value) as ComparisonYearInput["npsRate"],
+                  )
+                }
+              >
+                <option value="0">No</option>
+                <option value="5">Yes - 5%</option>
+                <option value="10">Yes - 10%</option>
+                <option value="14">Yes - 14%</option>
+              </Select>
+            </Field>
+
+            <Field>
+              <Label htmlFor="compareCurrentCarRentalChoice">Car rental option</Label>
+              <Select
+                id="compareCurrentCarRentalChoice"
+                value={form.currentYear.carRentalChoice}
+                onChange={(event) =>
+                  setField(
+                    "currentYear",
+                    "carRentalChoice",
+                    event.target.value as ComparisonYearInput["carRentalChoice"],
+                  )
+                }
+              >
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </Select>
+            </Field>
+
+            <Field>
+              <Label htmlFor="compareCurrentCarRentalAmount">Car rental amount</Label>
+              {currentYearBreakdown ? (
+                <p className="text-xs text-muted-foreground">
+                  Max {formatCurrency(currentYearBreakdown.maxCarRentalAllowed)}
+                </p>
+              ) : null}
+              <Input
+                id="compareCurrentCarRentalAmount"
+                type="number"
+                min={0}
+                disabled={form.currentYear.carRentalChoice === "no"}
+                value={form.currentYear.carRentalAmount || ""}
+                onChange={(event) =>
+                  setField(
+                    "currentYear",
+                    "carRentalAmount",
+                    Number(event.target.value) || 0,
+                  )
+                }
+                placeholder="Enter car rental amount"
+              />
+            </Field>
+
+            <Field>
+              <Label htmlFor="compareCurrentVpf">
+                VPF amount
+                {currentYearBreakdown ? (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    Max {formatCurrency(currentYearBreakdown.maxVpfAllowed)}
+                  </span>
+                ) : null}
+              </Label>
+              <Input
+                id="compareCurrentVpf"
+                type="number"
+                min={0}
+                value={form.currentYear.vpfAmount || ""}
+                onChange={(event) =>
+                  setField("currentYear", "vpfAmount", Number(event.target.value) || 0)
+                }
+                placeholder="0"
+              />
+            </Field>
+
+            <Field>
+              <Label htmlFor="compareCurrentMedical">Medical insurance</Label>
+              <Select
+                id="compareCurrentMedical"
+                value={form.currentYear.medicalInsuranceTier}
+                onChange={(event) =>
+                  setField(
+                    "currentYear",
+                    "medicalInsuranceTier",
+                    event.target.value as ComparisonYearInput["medicalInsuranceTier"],
+                  )
+                }
+              >
+                <option value="none">No</option>
+                <option value="oneMember">1 member - Rs. 833 / month</option>
+                <option value="twoMembers">2 members - Rs. 1,667 / month</option>
+              </Select>
+            </Field>
+
+            <Field>
+              <Label htmlFor="compareCurrentLoan">
+                Loans and advances
+                {currentYearBreakdown ? (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    Max {formatCurrency(currentYearBreakdown.maxLoanAdvanceAllowed)}
+                  </span>
+                ) : null}
+              </Label>
+              <Input
+                id="compareCurrentLoan"
+                type="number"
+                min={0}
+                value={form.currentYear.loanAndAdvanceAmount || ""}
+                onChange={(event) =>
+                  setField(
+                    "currentYear",
+                    "loanAndAdvanceAmount",
+                    Number(event.target.value) || 0,
+                  )
+                }
+                placeholder="0"
+              />
+            </Field>
+          </CardContent>
+        </Card>
+      </div>
+
+      {isPending ? (
+        <p className="text-sm text-muted-foreground">
+          Recalculating comparison...
+        </p>
+      ) : null}
+
+      <ComparisonCardTable result={result} />
+    </div>
   );
 }
 

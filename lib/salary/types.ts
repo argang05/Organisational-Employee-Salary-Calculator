@@ -1,7 +1,19 @@
 export type YesNo = "yes" | "no";
 export type NpsRate = 0 | 5 | 10 | 14;
+export type PreviousYearNpsRate = 0 | 10 | 14;
 export type PfMode = "none" | "fixed1800" | "twelvePercent";
 export type MedicalInsuranceTier = "none" | "oneMember" | "twoMembers";
+
+export interface ComparisonYearInput {
+  annualCtc: number;
+  npsRate: NpsRate | PreviousYearNpsRate;
+  pfMode: PfMode;
+  carRentalChoice: YesNo;
+  carRentalAmount: number;
+  vpfAmount: number;
+  medicalInsuranceTier: MedicalInsuranceTier;
+  loanAndAdvanceAmount: number;
+}
 
 export interface SalaryInput {
   annualCtc: number;
@@ -14,6 +26,11 @@ export interface SalaryInput {
   vpfAmount: number;
   medicalInsuranceTier: MedicalInsuranceTier;
   loanAndAdvanceAmount: number;
+}
+
+export interface ComparisonInput {
+  currentYear: ComparisonYearInput;
+  previousYear: ComparisonYearInput;
 }
 
 export interface SalaryBreakdown {
@@ -53,9 +70,52 @@ export interface SalaryBreakdown {
   netInHandMonthly: number;
 }
 
+export interface SalaryComparisonColumn {
+  annualCtc: number;
+  monthlyCtc: number;
+  basic: number;
+  hra: number;
+  lta: number;
+  carPerks: number;
+  carRentalAmount: number;
+  remainingCarRental: number;
+  maxCarRentalAllowed: number;
+  specialAllowance: number;
+  bonus: number;
+  grossSalary: number;
+  pf: number;
+  gratuity: number;
+  nps: number;
+  vpf: number;
+  medicalInsurance: number;
+  loansAndAdvances: number;
+  maxVpfAllowed: number;
+  maxLoanAdvanceAllowed: number;
+  otherBenefits: number;
+  subtotal: number;
+  professionalTax: number;
+  incomeTax: number;
+  employeeDeduction: number;
+  netSalary: number;
+}
+
+export interface SalaryComparison {
+  previousYear: SalaryComparisonColumn | null;
+  currentYear: SalaryComparisonColumn | null;
+  warnings: string[];
+}
+
 export interface SalaryResponse {
   input: SalaryInput;
   breakdown: SalaryBreakdown;
+  warnings: string[];
+  errors: string[];
+  assumptions: string[];
+}
+
+export interface ComparisonResponse {
+  input: ComparisonInput;
+  comparison: SalaryComparison;
   warnings: string[];
   errors: string[];
   assumptions: string[];
