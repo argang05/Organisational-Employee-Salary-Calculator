@@ -78,7 +78,7 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
     "Bonus is applied when annual CTC is below Rs. 5,04,000 or when monthly basic is below Rs. 21,000, based on your written rule.",
     "Car perks of Rs. 1,800 are applied automatically whenever car rental is enabled.",
     "VPF, medical insurance, and loans/advances are treated as monthly deductions from net in hand, not from special allowance.",
-    "Because Dearness Allowance is not captured in this calculator, the VPF cap is calculated monthly against basic salary only.",
+    "The VPF cap is calculated monthly against basic salary.",
   ];
 
   if (input.annualCtc <= 0) {

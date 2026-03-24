@@ -436,7 +436,7 @@ function StepTwo({
             />
             <p className="text-xs text-muted-foreground">
               VPF is deducted from net in hand and capped monthly using basic
-              salary because DA is not part of this calculator.
+              salary.
             </p>
           </Field>
 
