@@ -787,6 +787,7 @@ function ComparisonCardTable({ result }: { result: ComparisonResponse | null }) 
       getValue: (column) => column?.subtotal ?? 0,
       emphasis: "subtotal",
     },
+    { label: "BYOD", getValue: (column) => column?.byod ?? 0 },
     {
       label: "Provident fund and pension scheme",
       getValue: (column) => column?.pf ?? 0,
@@ -895,6 +896,24 @@ function ComparisonModule({
                 }
                 placeholder="Enter 2025-26 annual CTC"
               />
+            </Field>
+
+            <Field>
+              <Label htmlFor="comparePreviousByodChoice">BYOD choice</Label>
+              <Select
+                id="comparePreviousByodChoice"
+                value={form.previousYear.byodChoice}
+                onChange={(event) =>
+                  setField(
+                    "previousYear",
+                    "byodChoice",
+                    event.target.value as ComparisonYearInput["byodChoice"],
+                  )
+                }
+              >
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </Select>
             </Field>
 
             <Field>
@@ -1045,6 +1064,24 @@ function ComparisonModule({
                 }
                 placeholder="Enter 2026-27 annual CTC"
               />
+            </Field>
+
+            <Field>
+              <Label htmlFor="compareCurrentByodChoice">BYOD choice</Label>
+              <Select
+                id="compareCurrentByodChoice"
+                value={form.currentYear.byodChoice}
+                onChange={(event) =>
+                  setField(
+                    "currentYear",
+                    "byodChoice",
+                    event.target.value as ComparisonYearInput["byodChoice"],
+                  )
+                }
+              >
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </Select>
             </Field>
 
             <Field>

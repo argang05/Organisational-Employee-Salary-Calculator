@@ -16,6 +16,7 @@ export const defaultSalaryInput: SalaryInput = {
 export const defaultComparisonInput: ComparisonInput = {
   currentYear: {
     annualCtc: 0,
+    byodChoice: "yes",
     npsRate: 0,
     pfMode: "fixed1800",
     carRentalChoice: "no",
@@ -26,6 +27,7 @@ export const defaultComparisonInput: ComparisonInput = {
   },
   previousYear: {
     annualCtc: 0,
+    byodChoice: "yes",
     npsRate: 0,
     pfMode: "twelvePercent",
     carRentalChoice: "no",

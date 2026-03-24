@@ -6,6 +6,7 @@ export type MedicalInsuranceTier = "none" | "oneMember" | "twoMembers";
 
 export interface ComparisonYearInput {
   annualCtc: number;
+  byodChoice: YesNo;
   npsRate: NpsRate | PreviousYearNpsRate;
   pfMode: PfMode;
   carRentalChoice: YesNo;
@@ -93,6 +94,7 @@ export interface SalaryComparisonColumn {
   maxLoanAdvanceAllowed: number;
   otherBenefits: number;
   subtotal: number;
+  byod: number;
   professionalTax: number;
   incomeTax: number;
   employeeDeduction: number;

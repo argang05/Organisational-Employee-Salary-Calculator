@@ -87,6 +87,7 @@ function calculateComparisonColumn({
   const hra = round(basic * 0.4);
   const lta = round(basic * 0.1);
   const bonus = round(annualCtc < 504_000 || basic < 21_000 ? basic * 0.0833 : 0);
+  const byod = input.byodChoice === "yes" ? BYOD_AMOUNT : 0;
   const carPerks = input.carRentalChoice === "yes" ? CAR_PERKS_AMOUNT : 0;
   const pf =
     forceTwelvePercentPf
@@ -116,12 +117,12 @@ function calculateComparisonColumn({
   const grossSalary = round(basic + hra + lta + specialAllowance + bonus);
   const otherBenefits = round(pf + gratuity + nps);
   const subtotal = round(grossSalary + otherBenefits);
-  const annualTaxableIncome = Math.max(0, grossSalary * 12 - STANDARD_DEDUCTION);
+  const annualTaxableIncome = Math.max(0, (grossSalary + byod) * 12 - STANDARD_DEDUCTION);
   const annualIncomeTax = getSlabTax(annualTaxableIncome);
   const educationCess = round2(annualIncomeTax * 0.04);
   const incomeTax = round((annualIncomeTax + educationCess) / 12);
   const professionalTax = round(PROFESSIONAL_TAX_MONTHLY);
-  const baseNetInHand = grossSalary - (pf + professionalTax + incomeTax);
+  const baseNetInHand = grossSalary + byod - (pf + professionalTax + incomeTax);
   const maxVpfAllowed = Math.max(0, Math.min(basic, baseNetInHand));
   const vpf = round2(Math.min(clampMoney(input.vpfAmount), maxVpfAllowed));
   if (clampMoney(input.vpfAmount) > maxVpfAllowed) {
@@ -152,7 +153,7 @@ function calculateComparisonColumn({
       medicalInsurance +
       loansAndAdvances,
   );
-  const netSalary = round(Math.max(0, grossSalary - employeeDeduction));
+  const netSalary = round(Math.max(0, grossSalary + byod - employeeDeduction));
 
   return {
     warnings,
@@ -177,10 +178,11 @@ function calculateComparisonColumn({
     loansAndAdvances,
     maxVpfAllowed: round2(maxVpfAllowed),
     maxLoanAdvanceAllowed: round2(maxLoanAdvanceAllowed),
-    otherBenefits,
-    subtotal,
-    professionalTax,
-    incomeTax,
+      otherBenefits,
+      subtotal,
+      byod,
+      professionalTax,
+      incomeTax,
     employeeDeduction,
     netSalary,
     },
