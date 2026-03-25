@@ -57,6 +57,7 @@ export interface SalaryBreakdown {
   maxCarRentalAllowed: number;
   annualTaxableIncome: number;
   annualIncomeTax: number;
+  surcharge: number;
   educationCess: number;
   netAnnualTax: number;
   netMonthlyTax: number;
@@ -96,6 +97,7 @@ export interface SalaryComparisonColumn {
   subtotal: number;
   byod: number;
   professionalTax: number;
+  surcharge: number;
   incomeTax: number;
   employeeDeduction: number;
   netSalary: number;

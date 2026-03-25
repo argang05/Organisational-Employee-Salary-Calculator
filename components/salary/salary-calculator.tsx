@@ -738,6 +738,9 @@ function TaxCard({ result }: { result: SalaryResponse | null }) {
         <Table>
           <TableBody>
             <SummaryRow label="Annual income tax" value={breakdown?.annualIncomeTax} />
+            {breakdown?.surcharge ? (
+              <SummaryRow label="Surcharge" value={breakdown?.surcharge} />
+            ) : null}
             <SummaryRow label="Education cess" value={breakdown?.educationCess} />
             <SummaryRow label="Professional tax" value={breakdown?.professionalTaxMonthly} />
             <SummaryRow label="PF" value={breakdown?.pf} />
@@ -760,6 +763,10 @@ function ComparisonCardTable({ result }: { result: ComparisonResponse | null }) 
     label: string;
     getValue: (column: SalaryComparisonColumn | null | undefined) => number;
     emphasis?: "subtotal" | "deduction";
+    shouldShow?: (
+      previous: SalaryComparisonColumn | null | undefined,
+      current: SalaryComparisonColumn | null | undefined,
+    ) => boolean;
   }> = [
     { label: "Basic", getValue: (column) => column?.basic ?? 0 },
     { label: "House Rent Allowance", getValue: (column) => column?.hra ?? 0 },
@@ -793,6 +800,12 @@ function ComparisonCardTable({ result }: { result: ComparisonResponse | null }) 
       getValue: (column) => column?.pf ?? 0,
     },
     { label: "Professional Tax", getValue: (column) => column?.professionalTax ?? 0 },
+    {
+      label: "Surcharge",
+      getValue: (column) => column?.surcharge ?? 0,
+      shouldShow: (previous, current) =>
+        Boolean((previous?.surcharge ?? 0) > 0 || (current?.surcharge ?? 0) > 0),
+    },
     { label: "Income Tax", getValue: (column) => column?.incomeTax ?? 0 },
     { label: "Car Rental Deduction", getValue: (column) => column?.remainingCarRental ?? 0 },
     { label: "VPF", getValue: (column) => column?.vpf ?? 0 },
@@ -825,7 +838,11 @@ function ComparisonCardTable({ result }: { result: ComparisonResponse | null }) 
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((row, index) => (
+          {rows
+            .filter((row) =>
+              row.shouldShow ? row.shouldShow(previousYear, currentYear) : true,
+            )
+            .map((row, index) => (
             <TableRow
               key={`${row.label}-${index}`}
               className={cn(

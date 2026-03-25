@@ -89,12 +89,14 @@ function getNetAnnualTaxWithSurcharge(
   const baseTax = getSlabTax(netTaxableIncome);
   const surchargeRate = includeSurcharge ? getSurchargeRate(netTaxableIncome) : 0;
   const taxWithSurcharge = baseTax * (1 + surchargeRate);
+  const surcharge = round2(baseTax * surchargeRate);
   const educationCess = round2(taxWithSurcharge * 0.04);
   const netAnnualTax = Math.ceil(taxWithSurcharge + educationCess);
 
   return {
     baseTax: round2(baseTax),
     surchargeRate,
+    surcharge,
     educationCess,
     netAnnualTax,
   };
@@ -151,7 +153,7 @@ function calculateComparisonColumn({
   const annualTaxableIncome = Math.max(0, (grossSalary + byod) * 12 - STANDARD_DEDUCTION);
   const taxDetails = getNetAnnualTaxWithSurcharge(
     annualTaxableIncome,
-    !forceTwelvePercentPf,
+    true,
   );
   const incomeTax = round(taxDetails.netAnnualTax / 12);
   const professionalTax = forceTwelvePercentPf ? 200 : round(PROFESSIONAL_TAX_MONTHLY);
@@ -215,6 +217,7 @@ function calculateComparisonColumn({
       subtotal,
       byod,
       professionalTax,
+      surcharge: round(taxDetails.surcharge / 12),
       incomeTax,
     employeeDeduction,
     netSalary,
@@ -266,6 +269,7 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
         maxCarRentalAllowed: 0,
         annualTaxableIncome: 0,
         annualIncomeTax: 0,
+        surcharge: 0,
         educationCess: 0,
         netAnnualTax: 0,
         netMonthlyTax: 0,
@@ -364,6 +368,7 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
   );
   const taxDetails = getNetAnnualTaxWithSurcharge(annualTaxableIncome, true);
   const annualIncomeTax = taxDetails.baseTax;
+  const surcharge = taxDetails.surcharge;
   const educationCess = taxDetails.educationCess;
   const netAnnualTax = taxDetails.netAnnualTax;
   const netMonthlyTax = round2(netAnnualTax / 12);
@@ -439,6 +444,7 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
     maxCarRentalAllowed,
     annualTaxableIncome,
     annualIncomeTax,
+    surcharge,
     educationCess,
     netAnnualTax,
     netMonthlyTax,
