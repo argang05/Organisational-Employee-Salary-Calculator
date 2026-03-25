@@ -69,6 +69,37 @@ function getSlabTax(netTaxableIncome: number) {
   return round2(tax);
 }
 
+function getSurchargeRate(netTaxableIncome: number) {
+  if (netTaxableIncome <= 5_000_000) {
+    return 0;
+  }
+  if (netTaxableIncome <= 10_000_000) {
+    return 0.1;
+  }
+  if (netTaxableIncome <= 20_000_000) {
+    return 0.15;
+  }
+  return 0.25;
+}
+
+function getNetAnnualTaxWithSurcharge(
+  netTaxableIncome: number,
+  includeSurcharge: boolean,
+) {
+  const baseTax = getSlabTax(netTaxableIncome);
+  const surchargeRate = includeSurcharge ? getSurchargeRate(netTaxableIncome) : 0;
+  const taxWithSurcharge = baseTax * (1 + surchargeRate);
+  const educationCess = round2(taxWithSurcharge * 0.04);
+  const netAnnualTax = Math.ceil(taxWithSurcharge + educationCess);
+
+  return {
+    baseTax: round2(baseTax),
+    surchargeRate,
+    educationCess,
+    netAnnualTax,
+  };
+}
+
 function calculateComparisonColumn({
   input,
   basicRatio,
@@ -118,10 +149,12 @@ function calculateComparisonColumn({
   const otherBenefits = round(pf + gratuity + nps);
   const subtotal = round(grossSalary + otherBenefits);
   const annualTaxableIncome = Math.max(0, (grossSalary + byod) * 12 - STANDARD_DEDUCTION);
-  const annualIncomeTax = getSlabTax(annualTaxableIncome);
-  const educationCess = round2(annualIncomeTax * 0.04);
-  const incomeTax = round((annualIncomeTax + educationCess) / 12);
-  const professionalTax = round(PROFESSIONAL_TAX_MONTHLY);
+  const taxDetails = getNetAnnualTaxWithSurcharge(
+    annualTaxableIncome,
+    !forceTwelvePercentPf,
+  );
+  const incomeTax = round(taxDetails.netAnnualTax / 12);
+  const professionalTax = forceTwelvePercentPf ? 200 : round(PROFESSIONAL_TAX_MONTHLY);
   const baseNetInHand = grossSalary + byod - (pf + professionalTax + incomeTax);
   const maxVpfAllowed = Math.max(0, Math.min(basic, baseNetInHand));
   const vpf = round2(Math.min(clampMoney(input.vpfAmount), maxVpfAllowed));
@@ -329,9 +362,10 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
   const annualTaxableIncome = round2(
     Math.max(0, (grossSalaryAfterAdjustments + byod) * 12 - STANDARD_DEDUCTION),
   );
-  const annualIncomeTax = getSlabTax(annualTaxableIncome);
-  const educationCess = round2(annualIncomeTax * 0.04);
-  const netAnnualTax = round2(annualIncomeTax + educationCess);
+  const taxDetails = getNetAnnualTaxWithSurcharge(annualTaxableIncome, true);
+  const annualIncomeTax = taxDetails.baseTax;
+  const educationCess = taxDetails.educationCess;
+  const netAnnualTax = taxDetails.netAnnualTax;
   const netMonthlyTax = round2(netAnnualTax / 12);
   const professionalTaxMonthly =
     input.professionalTaxChoice === "yes"
