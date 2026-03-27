@@ -183,7 +183,6 @@ function calculateComparisonColumn({
     pf +
       professionalTax +
       incomeTax +
-      remainingCarRental +
       vpf +
       medicalInsurance +
       loansAndAdvances,
