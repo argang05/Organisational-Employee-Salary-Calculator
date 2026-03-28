@@ -491,6 +491,7 @@ function StepOne({
               <option value="0">No</option>
               <option value="5">Yes - 5%</option>
               <option value="10">Yes - 10%</option>
+              <option value="12.5">Yes - 12.5%</option>
               <option value="14">Yes - 14%</option>
             </Select>
           </Field>
@@ -1214,6 +1215,7 @@ function ComparisonModule({
                 <option value="0">No</option>
                 <option value="5">Yes - 5%</option>
                 <option value="10">Yes - 10%</option>
+                <option value="12.5">Yes - 12.5%</option>
                 <option value="14">Yes - 14%</option>
               </Select>
             </Field>
