@@ -121,7 +121,8 @@ function calculateComparisonColumn({
   const lta = round(basic * 0.1);
   const bonus = round(annualCtc < 504_000 || basic < 21_000 ? basic * 0.0833 : 0);
   const byod = input.byodChoice === "yes" ? BYOD_AMOUNT : 0;
-  const carPerks = input.carRentalChoice === "yes" ? CAR_PERKS_AMOUNT : 0;
+  const carPerks =
+    input.carRentalChoice === "yes" ? clampMoney(input.carPerksAmount) : 0;
   const pf =
     forceTwelvePercentPf
       ? round(basic * 0.12)
@@ -150,7 +151,12 @@ function calculateComparisonColumn({
   const grossSalary = round(basic + hra + lta + specialAllowance + bonus);
   const otherBenefits = round(pf + gratuity + nps);
   const subtotal = round(grossSalary + otherBenefits);
-  const annualTaxableIncome = Math.max(0, (grossSalary + byod) * 12 - STANDARD_DEDUCTION);
+  const totalRetiralContribution = round((nps + pf) * 12);
+  const additionalTaxableIncome = Math.max(0, totalRetiralContribution - 750_000);
+  const annualTaxableIncome = Math.max(
+    0,
+    (grossSalary + byod) * 12 + additionalTaxableIncome - STANDARD_DEDUCTION,
+  );
   const taxDetails = getNetAnnualTaxWithSurcharge(
     annualTaxableIncome,
     true,
@@ -201,6 +207,7 @@ function calculateComparisonColumn({
     carRentalAmount: round2(carRentalAmount),
     remainingCarRental,
     maxCarRentalAllowed,
+    totalRetiralContribution,
     specialAllowance,
     bonus,
     grossSalary,
@@ -228,6 +235,7 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
   const input: SalaryInput = {
     ...rawInput,
     annualCtc: clampMoney(rawInput.annualCtc),
+    carPerksAmount: clampMoney(rawInput.carPerksAmount),
     carRentalAmount: clampMoney(rawInput.carRentalAmount),
     vpfAmount: clampMoney(rawInput.vpfAmount),
     loanAndAdvanceAmount: clampMoney(rawInput.loanAndAdvanceAmount),
@@ -266,6 +274,7 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
         carRentalAmount: 0,
         remainingCarRental: 0,
         maxCarRentalAllowed: 0,
+        totalRetiralContribution: 0,
         annualTaxableIncome: 0,
         annualIncomeTax: 0,
         surcharge: 0,
@@ -296,7 +305,7 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
     input.annualCtc < 504_000 || basic < 21_000 ? basic * 0.0833 : 0,
   );
   const byod = input.byodChoice === "yes" ? BYOD_AMOUNT : 0;
-  const carPerks = input.carRentalChoice === "yes" ? CAR_PERKS_AMOUNT : 0;
+  const carPerks = input.carRentalChoice === "yes" ? input.carPerksAmount : 0;
 
   const nps =
     input.npsRate > 0 ? round2((basic * input.npsRate) / 100) : 0;
@@ -361,9 +370,16 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
   );
   const netDiff = round2(monthlyCtc - calculatedMonthlyCtc);
   const remainingCarRental = round2(Math.max(0, carRentalAmount - carPerks));
+  const totalRetiralContribution = round((nps + pf) * 12);
+  const additionalTaxableIncome = Math.max(0, totalRetiralContribution - 750_000);
 
   const annualTaxableIncome = round2(
-    Math.max(0, (grossSalaryAfterAdjustments + byod) * 12 - STANDARD_DEDUCTION),
+    Math.max(
+      0,
+      (grossSalaryAfterAdjustments + byod) * 12 +
+        additionalTaxableIncome -
+        STANDARD_DEDUCTION,
+    ),
   );
   const taxDetails = getNetAnnualTaxWithSurcharge(annualTaxableIncome, true);
   const annualIncomeTax = taxDetails.baseTax;
@@ -441,6 +457,7 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
     carRentalAmount: round2(carRentalAmount),
     remainingCarRental,
     maxCarRentalAllowed,
+    totalRetiralContribution,
     annualTaxableIncome,
     annualIncomeTax,
     surcharge,
@@ -474,6 +491,7 @@ export function calculateSalaryComparison(
     currentYear: {
       ...rawInput.currentYear,
       annualCtc: clampMoney(rawInput.currentYear.annualCtc),
+      carPerksAmount: clampMoney(rawInput.currentYear.carPerksAmount),
       carRentalAmount: clampMoney(rawInput.currentYear.carRentalAmount),
       vpfAmount: clampMoney(rawInput.currentYear.vpfAmount),
       loanAndAdvanceAmount: clampMoney(rawInput.currentYear.loanAndAdvanceAmount),
@@ -481,6 +499,7 @@ export function calculateSalaryComparison(
     previousYear: {
       ...rawInput.previousYear,
       annualCtc: clampMoney(rawInput.previousYear.annualCtc),
+      carPerksAmount: clampMoney(rawInput.previousYear.carPerksAmount),
       carRentalAmount: clampMoney(rawInput.previousYear.carRentalAmount),
       vpfAmount: clampMoney(rawInput.previousYear.vpfAmount),
       loanAndAdvanceAmount: clampMoney(rawInput.previousYear.loanAndAdvanceAmount),

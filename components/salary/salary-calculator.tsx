@@ -10,6 +10,7 @@ import {
   GitCompareArrows,
   IndianRupee,
   Landmark,
+  Image as ImageIcon,
   ShieldPlus,
 } from "lucide-react";
 
@@ -63,6 +64,7 @@ export function SalaryCalculator() {
   );
   const [comparisonResult, setComparisonResult] =
     React.useState<ComparisonResponse | null>(null);
+  const [showReferenceImage, setShowReferenceImage] = React.useState(false);
   const [isPending, startTransition] = React.useTransition();
   const [isComparisonPending, startComparisonTransition] = React.useTransition();
   const lastToastKeyRef = React.useRef<string>("");
@@ -186,11 +188,11 @@ export function SalaryCalculator() {
               <div className="mt-8 grid gap-4 md:grid-cols-3">
                 <HeroStat
                   icon={Calculator}
-                  label={mode === "comparison" ? "2026-27 Net Salary" : "Monthly CTC"}
+                  label={mode === "comparison" ? "2025-26 Net Salary" : "Monthly CTC"}
                   value={
                     mode === "comparison"
-                      ? comparisonCurrentYear
-                        ? formatCurrency(comparisonCurrentYear.netSalary)
+                      ? comparison?.previousYear
+                        ? formatCurrency(comparison.previousYear.netSalary)
                         : formatCurrency(0)
                       : breakdown
                         ? formatCurrency(breakdown.monthlyCtc)
@@ -199,11 +201,11 @@ export function SalaryCalculator() {
                 />
                 <HeroStat
                   icon={ShieldPlus}
-                  label={mode === "comparison" ? "2025-26 Net Salary" : "Basic Salary"}
+                  label={mode === "comparison" ? "2026-27 Net Salary" : "Basic Salary"}
                   value={
                     mode === "comparison"
-                      ? comparison?.previousYear
-                        ? formatCurrency(comparison.previousYear.netSalary)
+                      ? comparisonCurrentYear
+                        ? formatCurrency(comparisonCurrentYear.netSalary)
                         : formatCurrency(0)
                       : breakdown
                         ? formatCurrency(breakdown.basic)
@@ -300,6 +302,15 @@ export function SalaryCalculator() {
                     Compare Appraisal
                   </Button>
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowReferenceImage((current) => !current)}
+                  className="w-full gap-2"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  {showReferenceImage ? "Hide Reference Image" : "View Reference Image For Car Perks"}
+                </Button>
                 {mode === "calculator" && isPending ? (
                   <p className="text-sm text-muted-foreground">
                     Recalculating figures...
@@ -314,6 +325,26 @@ export function SalaryCalculator() {
             </Card>
           </CardContent>
         </Card>
+
+        {showReferenceImage ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Reference Image</CardTitle>
+              <CardDescription>
+                Car usage and taxable-value reference for employees.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-center">
+                <img
+                  src="/car-reference.jpeg"
+                  alt="Car perks and tax reference"
+                  className="max-h-[720px] w-full max-w-2xl rounded-2xl border border-border object-contain bg-white"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
         {mode === "calculator" ? (
           <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
@@ -428,9 +459,23 @@ function StepOne({
               }
               placeholder="Enter car rental amount"
             />
+          </Field>
+
+          <Field>
+            <Label htmlFor="carPerksAmount">Car perks amount</Label>
+            <Input
+              id="carPerksAmount"
+              type="number"
+              min={0}
+              value={form.carPerksAmount || ""}
+              disabled={form.carRentalChoice === "no"}
+              onChange={(event) =>
+                setField("carPerksAmount", Number(event.target.value) || 0)
+              }
+              placeholder="Enter car perks amount"
+            />
             <p className="text-xs text-muted-foreground">
-              Car perks of {formatCurrency(1800)} are applied automatically when
-              car rental is enabled.
+              Default car perks amount is {formatCurrency(1800)}. You can revise it.
             </p>
           </Field>
 
@@ -493,6 +538,7 @@ function StepOne({
             ["Bonus allowance", breakdown?.bonusAllowance],
             ["Gratuity", breakdown?.gratuity],
             ["Employer contribution", breakdown?.totalEmployerContribution],
+            ["Total retiral contribution", breakdown?.totalRetiralContribution],
             ["Special allowance", breakdown?.specialAllowanceBeforeAdjustments],
           ]}
         />
@@ -626,6 +672,7 @@ function StepTwo({
           title="Figures carried forward"
           items={[
             ["Gross salary", breakdown?.grossSalaryAfterAdjustments],
+            ["Total retiral contribution", breakdown?.totalRetiralContribution],
             ["Net taxable income", breakdown?.annualTaxableIncome],
             ["Net in hand before optional deductions", breakdown?.netInHandBeforeOptionalDeductions],
             ["Net monthly tax", breakdown?.netMonthlyTax],
@@ -675,6 +722,10 @@ function SummaryCard({ result }: { result: SalaryResponse | null }) {
             <SummaryRow
               label="Employer contribution"
               value={breakdown?.totalEmployerContribution}
+            />
+            <SummaryRow
+              label="Total retiral contribution"
+              value={breakdown?.totalRetiralContribution}
             />
             <SummaryRow
               label="Special allowance"
@@ -742,6 +793,10 @@ function TaxCard({ result }: { result: SalaryResponse | null }) {
               <SummaryRow label="Surcharge" value={breakdown?.surcharge} />
             ) : null}
             <SummaryRow label="Education cess" value={breakdown?.educationCess} />
+            <SummaryRow
+              label="Total retiral contribution"
+              value={breakdown?.totalRetiralContribution}
+            />
             <SummaryRow label="Professional tax" value={breakdown?.professionalTaxMonthly} />
             <SummaryRow label="PF" value={breakdown?.pf} />
             <SummaryRow label="VPF" value={breakdown?.vpfMonthly} />
@@ -784,6 +839,10 @@ function ComparisonCardTable({ result }: { result: ComparisonResponse | null }) 
     },
     { label: "Gratuity", getValue: (column) => column?.gratuity ?? 0 },
     { label: "NPS", getValue: (column) => column?.nps ?? 0 },
+    {
+      label: "Total Retiral Contribution",
+      getValue: (column) => column?.totalRetiralContribution ?? 0,
+    },
     {
       label: "Other Benefits (B)",
       getValue: (column) => column?.otherBenefits ?? 0,
@@ -995,6 +1054,25 @@ function ComparisonModule({
             </Field>
 
             <Field>
+              <Label htmlFor="comparePreviousCarPerksAmount">Car perks amount</Label>
+              <Input
+                id="comparePreviousCarPerksAmount"
+                type="number"
+                min={0}
+                disabled={form.previousYear.carRentalChoice === "no"}
+                value={form.previousYear.carPerksAmount || ""}
+                onChange={(event) =>
+                  setField(
+                    "previousYear",
+                    "carPerksAmount",
+                    Number(event.target.value) || 0,
+                  )
+                }
+                placeholder="Enter car perks amount"
+              />
+            </Field>
+
+            <Field>
               <Label htmlFor="comparePreviousVpf">
                 VPF amount
                 {previousYearBreakdown ? (
@@ -1179,6 +1257,25 @@ function ComparisonModule({
                   )
                 }
                 placeholder="Enter car rental amount"
+              />
+            </Field>
+
+            <Field>
+              <Label htmlFor="compareCurrentCarPerksAmount">Car perks amount</Label>
+              <Input
+                id="compareCurrentCarPerksAmount"
+                type="number"
+                min={0}
+                disabled={form.currentYear.carRentalChoice === "no"}
+                value={form.currentYear.carPerksAmount || ""}
+                onChange={(event) =>
+                  setField(
+                    "currentYear",
+                    "carPerksAmount",
+                    Number(event.target.value) || 0,
+                  )
+                }
+                placeholder="Enter car perks amount"
               />
             </Field>
 

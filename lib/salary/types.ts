@@ -10,6 +10,7 @@ export interface ComparisonYearInput {
   npsRate: NpsRate | PreviousYearNpsRate;
   pfMode: PfMode;
   carRentalChoice: YesNo;
+  carPerksAmount: number;
   carRentalAmount: number;
   vpfAmount: number;
   medicalInsuranceTier: MedicalInsuranceTier;
@@ -20,6 +21,7 @@ export interface SalaryInput {
   annualCtc: number;
   byodChoice: YesNo;
   carRentalChoice: YesNo;
+  carPerksAmount: number;
   carRentalAmount: number;
   npsRate: NpsRate;
   pfMode: PfMode;
@@ -55,6 +57,7 @@ export interface SalaryBreakdown {
   carRentalAmount: number;
   remainingCarRental: number;
   maxCarRentalAllowed: number;
+  totalRetiralContribution: number;
   annualTaxableIncome: number;
   annualIncomeTax: number;
   surcharge: number;
@@ -82,6 +85,7 @@ export interface SalaryComparisonColumn {
   carRentalAmount: number;
   remainingCarRental: number;
   maxCarRentalAllowed: number;
+  totalRetiralContribution: number;
   specialAllowance: number;
   bonus: number;
   grossSalary: number;
