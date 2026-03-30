@@ -155,7 +155,9 @@ function calculateComparisonColumn({
   const additionalTaxableIncome = Math.max(0, totalRetiralContribution - 750_000);
   const annualTaxableIncome = Math.max(
     0,
-    (grossSalary + byod) * 12 + additionalTaxableIncome - STANDARD_DEDUCTION,
+    (grossSalary + byod + carPerks) * 12 +
+      additionalTaxableIncome -
+      STANDARD_DEDUCTION,
   );
   const taxDetails = getNetAnnualTaxWithSurcharge(
     annualTaxableIncome,
@@ -241,11 +243,12 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
     loanAndAdvanceAmount: clampMoney(rawInput.loanAndAdvanceAmount),
   };
 
+  // "Car perks use the amount entered by the user whenever car rental is enabled; otherwise car perks are treated as zero.",
+
   const errors: string[] = [];
   const warnings: string[] = [];
   const assumptions = [
     "Bonus is applied when annual CTC is below Rs. 5,04,000 or when monthly basic is below Rs. 21,000, based on your written rule.",
-    "Car perks of Rs. 1,800 are applied automatically whenever car rental is enabled.",
     "VPF, medical insurance, and loans/advances are treated as monthly deductions from net in hand, not from special allowance.",
     "The VPF cap is calculated monthly against basic salary.",
   ];
@@ -376,7 +379,7 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
   const annualTaxableIncome = round2(
     Math.max(
       0,
-      (grossSalaryAfterAdjustments + byod) * 12 +
+      (grossSalaryAfterAdjustments + byod + carPerks) * 12 +
         additionalTaxableIncome -
         STANDARD_DEDUCTION,
     ),
@@ -512,7 +515,7 @@ export function calculateSalaryComparison(
     "This comparison module uses a core monthly salary comparison only.",
     "The 2025-26 side uses 30% basic with a minimum of Rs. 16,000 per month.",
     "Professional tax is always applied in the comparison module.",
-    "Car rental is split into Rs. 1,800 company car perks and the remaining amount as employee deduction.",
+    "Car rental uses the user-entered car perks amount and treats the remaining amount as employee-side car rental.",
     "The 2025-26 side always uses PF at 12% of basic and only allows NPS as No, 10%, or 14%.",
   ];
 
