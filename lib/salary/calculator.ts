@@ -12,7 +12,7 @@ import type {
 } from "@/lib/salary/types";
 
 const STANDARD_DEDUCTION = 75_000;
-const CAR_PERKS_AMOUNT = 1_800;
+const CAR_PERKS_AMOUNT = 2_000;
 const BYOD_AMOUNT = 1_500;
 const PROFESSIONAL_TAX_MONTHLY = 2_500 / 12;
 

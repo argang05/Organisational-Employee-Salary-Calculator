@@ -475,7 +475,7 @@ function StepOne({
               placeholder="Enter car perks amount"
             />
             <p className="text-xs text-muted-foreground">
-              Default car perks amount is {formatCurrency(1800)}. You can revise it.
+              Default car perks amount is {formatCurrency(2000)}. You can revise it.
             </p>
           </Field>
 
