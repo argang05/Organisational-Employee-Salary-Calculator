@@ -505,7 +505,7 @@ function StepOne({
                 setField("pfMode", event.target.value as SalaryInput["pfMode"])
               }
             >
-              <option value="fixed1800">Yes - Rs. 1,800</option>
+              <option value="fixed3000">Yes - Rs. 3,000</option>
               <option value="twelvePercent">Yes - 12% of basic</option>
               <option value="none">No</option>
             </Select>
@@ -1193,7 +1193,7 @@ function ComparisonModule({
                   )
                 }
               >
-                <option value="fixed1800">Yes - Rs. 1,800</option>
+                <option value="fixed3000">Yes - Rs. 3,000</option>
                 <option value="twelvePercent">Yes - 12% of basic</option>
                 <option value="none">No</option>
               </Select>

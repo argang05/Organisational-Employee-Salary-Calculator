@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Salary Calculator Formula Writeup</title>
+    <style>
+      body {
+        font-family: "Aptos", "Segoe UI", Arial, sans-serif;
+        margin: 40px;
+        color: #1f2a37;
+        line-height: 1.55;
+      }
+
+      h1,
+      h2,
+      h3 {
+        color: #143d6b;
+      }
+
+      h1 {
+        font-size: 28px;
+        margin-bottom: 8px;
+      }
+
+      h2 {
+        font-size: 20px;
+        margin-top: 30px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #d7e3f1;
+      }
+
+      h3 {
+        font-size: 16px;
+        margin-top: 22px;
+      }
+
+      p,
+      li {
+        font-size: 12px;
+      }
+
+      .note {
+        background: #f7f9fc;
+        border-left: 4px solid #2f6fb3;
+        padding: 12px 14px;
+        margin: 18px 0;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0 20px;
+      }
+
+      th,
+      td {
+        border: 1px solid #cfd8e3;
+        padding: 8px 10px;
+        vertical-align: top;
+        font-size: 11px;
+      }
+
+      th {
+        background: #eef4fb;
+        text-align: left;
+      }
+
+      code {
+        font-family: "SFMono-Regular", "Menlo", monospace;
+        font-size: 11px;
+        background: #f2f4f7;
+        padding: 1px 4px;
+        border-radius: 4px;
+      }
+
+      .muted {
+        color: #526277;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Salary Calculator Formula Writeup</h1>
+    <p class="muted">
+      This document describes the formulas, caps, tax logic, validations, and
+      assumptions currently used in the salary calculator and the appraisal
+      comparison calculator.
+    </p>
+
+    <div class="note">
+      <strong>Important:</strong> This writeup reflects the implemented app
+      logic in code, including later revisions such as dynamic car perks,
+      retirement-contribution tax treatment, surcharge handling, and separate
+      comparison-year rules.
+    </div>
+
+    <h2>1. Global Constants</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Value / Rule</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Standard deduction</td>
+          <td><code>Rs. 75,000</code> annually</td>
+        </tr>
+        <tr>
+          <td>BYOD benefit</td>
+          <td><code>Rs. 1,500</code> monthly when opted</td>
+        </tr>
+        <tr>
+          <td>Professional tax (main calculator)</td>
+          <td><code>Rs. 2,500 / 12</code> monthly when opted</td>
+        </tr>
+        <tr>
+          <td>Professional tax (comparison 2025-26)</td>
+          <td><code>Rs. 200</code> monthly, always applied</td>
+        </tr>
+        <tr>
+          <td>Professional tax (comparison 2026-27)</td>
+          <td><code>round(Rs. 2,500 / 12)</code> monthly, always applied</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>2. Rounding Rules</h2>
+    <ul>
+      <li><code>round(x)</code> means normal rounding to the nearest whole number.</li>
+      <li>
+        <code>round2(x)</code> means rounding to two decimal places.
+      </li>
+      <li>
+        Net annual tax is rounded upward using ceiling logic after adding cess
+        and surcharge.
+      </li>
+      <li>
+        Invalid or negative money inputs are sanitized to <code>0</code>.
+      </li>
+    </ul>
+
+    <h2>3. Main Salary Calculator</h2>
+
+    <h3>3.1 Input Sanitization</h3>
+    <ul>
+      <li>
+        If fixed annual CTC is blank, zero, invalid, or negative, the calculator
+        returns a full zeroed output.
+      </li>
+      <li>
+        Car rental, car perks, VPF, and loans/advances are clamped so they never
+        start below <code>0</code>.
+      </li>
+    </ul>
+
+    <h3>3.2 Salary Structure</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Formula</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Monthly CTC</td>
+          <td><code>ceil(Annual CTC / 12)</code></td>
+        </tr>
+        <tr>
+          <td>Basic</td>
+          <td><code>round(max(Monthly CTC x 50%, Rs. 17,000))</code></td>
+        </tr>
+        <tr>
+          <td>HRA</td>
+          <td><code>round(Basic x 40%)</code></td>
+        </tr>
+        <tr>
+          <td>LTA</td>
+          <td><code>round(Basic x 10%)</code></td>
+        </tr>
+        <tr>
+          <td>Bonus Allowance</td>
+          <td>
+            <code>round(Basic x 8.33%)</code> if annual CTC is below
+            <code>Rs. 5,04,000</code> or monthly basic is below
+            <code>Rs. 21,000</code>; otherwise <code>0</code>
+          </td>
+        </tr>
+        <tr>
+          <td>BYOD</td>
+          <td><code>Rs. 1,500</code> monthly when selected; otherwise <code>0</code></td>
+        </tr>
+        <tr>
+          <td>Car Perks</td>
+          <td>
+            User-entered monthly amount when car rental is selected; otherwise
+            <code>0</code>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>3.3 Employer Contributions</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Formula</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>NPS</td>
+          <td>
+            <code>round2(Basic x NPS%)</code> where NPS option can be
+            <code>0%</code>, <code>5%</code>, <code>10%</code>,
+            <code>12.5%</code>, or <code>14%</code>
+          </td>
+        </tr>
+        <tr>
+          <td>PF</td>
+          <td>
+            <code>0</code>, <code>Rs. 3,000</code>, or
+            <code>round2(Basic x 12%)</code> depending on user selection
+          </td>
+        </tr>
+        <tr>
+          <td>Gratuity</td>
+          <td><code>round(Basic x 4.81%)</code></td>
+        </tr>
+        <tr>
+          <td>Total Employer Contribution</td>
+          <td><code>round2(NPS + PF + Gratuity)</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>3.4 Special Allowance and Car Rental</h3>
+    <p>Base special allowance is calculated as:</p>
+    <p>
+      <code>
+        Monthly CTC - Basic - HRA - LTA - Bonus - Car Perks - Total Employer
+        Contribution
+      </code>
+    </p>
+    <p>Car rental handling:</p>
+    <ul>
+      <li>
+        Max allowed car rental = <code>95%</code> of base special allowance.
+      </li>
+      <li>
+        If user-entered car rental exceeds that cap, it is reduced to the cap
+        and a warning is shown.
+      </li>
+      <li>
+        Final special allowance before optional deductions:
+        <code>Base Special Allowance - Car Rental Amount</code>
+      </li>
+      <li>
+        Negative special allowance is allowed and remains negative. It also
+        reduces gross salary accordingly and is shown as a warning state in the UI.
+      </li>
+      <li>
+        Remaining car rental shown in the UI =
+        <code>max(0, Car Rental Amount - Car Perks)</code>
+      </li>
+    </ul>
+
+    <h3>3.5 Gross Salary and CTC Checks</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Formula</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Gross Salary</td>
+          <td>
+            <code>Basic + HRA + LTA + Bonus Allowance + Special Allowance</code>
+          </td>
+        </tr>
+        <tr>
+          <td>Calculated Monthly CTC</td>
+          <td><code>Gross Salary + Total Employer Contribution</code></td>
+        </tr>
+        <tr>
+          <td>Net Diff</td>
+          <td><code>Monthly CTC - Calculated Monthly CTC</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>3.6 Total Retiral Contribution and Additional Taxable Income</h3>
+    <ul>
+      <li>
+        Total retiral contribution =
+        <code>round((NPS + PF) x 12)</code>
+      </li>
+      <li>
+        Additional taxable income =
+        <code>max(0, Total Retiral Contribution - Rs. 7,50,000)</code>
+      </li>
+      <li>
+        This additional taxable income is used internally in tax calculation
+        but is not separately displayed to the user.
+      </li>
+    </ul>
+
+    <h3>3.7 Net Taxable Income</h3>
+    <p>The implemented main-calculator tax base is:</p>
+    <p>
+      <code>
+        max(0, ((Gross Salary + BYOD + Car Perks) x 12) + Additional Taxable
+        Income - Rs. 75,000)
+      </code>
+    </p>
+
+    <h3>3.8 Income Tax, Surcharge, and Cess</h3>
+    <p>If net taxable income is at or below <code>Rs. 12,00,000</code>, slab tax is <code>0</code>.</p>
+    <p>Otherwise slab tax is computed as follows:</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Income Slice</th>
+          <th>Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>0 - 4,00,000</code></td><td><code>0%</code></td></tr>
+        <tr><td><code>4,00,001 - 8,00,000</code></td><td><code>5%</code></td></tr>
+        <tr><td><code>8,00,001 - 12,00,000</code></td><td><code>10%</code></td></tr>
+        <tr><td><code>12,00,001 - 16,00,000</code></td><td><code>15%</code></td></tr>
+        <tr><td><code>16,00,001 - 20,00,000</code></td><td><code>20%</code></td></tr>
+        <tr><td><code>20,00,001 - 24,00,000</code></td><td><code>25%</code></td></tr>
+        <tr><td><code>Above 24,00,000</code></td><td><code>30%</code></td></tr>
+      </tbody>
+    </table>
+
+    <p>Surcharge is applied on slab tax using these thresholds:</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Net Taxable Income</th>
+          <th>Surcharge Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>Up to 50,00,000</code></td><td><code>0%</code></td></tr>
+        <tr><td><code>50,00,001 - 1,00,00,000</code></td><td><code>10%</code></td></tr>
+        <tr><td><code>1,00,00,001 - 2,00,00,000</code></td><td><code>15%</code></td></tr>
+        <tr><td><code>Above 2,00,00,000</code></td><td><code>25%</code></td></tr>
+      </tbody>
+    </table>
+
+    <p>Final tax formulas:</p>
+    <ul>
+      <li><code>Tax With Surcharge = Base Tax x (1 + Surcharge Rate)</code></li>
+      <li><code>Education Cess = Tax With Surcharge x 4%</code></li>
+      <li><code>Net Annual Tax = ceil(Tax With Surcharge + Education Cess)</code></li>
+      <li><code>Net Monthly Tax = Net Annual Tax / 12</code></li>
+    </ul>
+
+    <h3>3.9 Net In Hand and Optional Deductions</h3>
+    <p>Base deductions:</p>
+    <p>
+      <code>PF + Net Monthly Tax + Professional Tax</code>
+    </p>
+    <p>Important: car rental is not included in total deductions.</p>
+
+    <p>Net in hand before optional deductions:</p>
+    <p>
+      <code>Gross Salary + BYOD - Base Deductions</code>
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Optional Item</th>
+          <th>Formula / Rule</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>VPF</td>
+          <td>
+            Deducted only from net in hand. Max allowed is
+            <code>min(Basic, Net In Hand Before Optional Deductions)</code>.
+          </td>
+        </tr>
+        <tr>
+          <td>Medical Insurance</td>
+          <td>
+            <code>0</code>, <code>Rs. 833</code>, or <code>Rs. 1,667</code>
+            monthly depending on chosen tier; deducted only from net in hand.
+          </td>
+        </tr>
+        <tr>
+          <td>Loans and Advances</td>
+          <td>
+            Deducted only from net in hand. Max allowed is the smaller of:
+            <code>70%</code> of net in hand before optional deductions, or the
+            remaining amount after VPF and medical insurance.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>Total deductions:</p>
+    <p>
+      <code>
+        PF + Net Monthly Tax + Professional Tax + VPF + Medical Insurance +
+        Loans and Advances
+      </code>
+    </p>
+
+    <p>Final net in hand:</p>
+    <p>
+      <code>max(0, Gross Salary + BYOD - Total Deductions)</code>
+    </p>
+
+    <h2>4. Comparison Calculator</h2>
+    <p>
+      The comparison calculator has two separately configurable columns:
+      <strong>2025-26</strong> and <strong>2026-27</strong>.
+    </p>
+
+    <h3>4.1 Rules Common to Both Comparison Columns</h3>
+    <ul>
+      <li>Monthly CTC = <code>ceil(Annual CTC / 12)</code></li>
+      <li>HRA = <code>round(Basic x 40%)</code></li>
+      <li>LTA = <code>round(Basic x 10%)</code></li>
+      <li>
+        Bonus = <code>round(Basic x 8.33%)</code> if annual CTC is below
+        <code>Rs. 5,04,000</code> or basic is below <code>Rs. 21,000</code>
+      </li>
+      <li>Gratuity = <code>round(Basic x 4.81%)</code></li>
+      <li>BYOD = <code>Rs. 1,500</code> monthly when selected</li>
+      <li>
+        Car perks are user-entered when car rental is selected; otherwise
+        <code>0</code>
+      </li>
+      <li>Car rental max cap = <code>95%</code> of pre-rental special allowance</li>
+      <li>
+        Remaining car rental shown in UI =
+        <code>max(0, Car Rental Amount - Car Perks)</code>
+      </li>
+      <li>
+        Total retiral contribution =
+        <code>round((NPS + PF) x 12)</code>
+      </li>
+      <li>
+        Additional taxable income =
+        <code>max(0, Total Retiral Contribution - Rs. 7,50,000)</code>
+      </li>
+      <li>
+        Net taxable income =
+        <code>max(0, ((Gross Salary + BYOD + Car Perks) x 12) + Additional Taxable Income - Rs. 75,000)</code>
+      </li>
+      <li>
+        Surcharge and cess logic follow the same rules as the main calculator
+      </li>
+      <li>
+        VPF, medical insurance, and loans/advances are deducted from net salary,
+        not from special allowance
+      </li>
+      <li>Net salary is never allowed to become negative</li>
+      <li>Car rental is not included in employee deduction totals</li>
+    </ul>
+
+    <h3>4.2 Comparison 2026-27 Rules</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Formula / Rule</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Basic</td>
+          <td><code>round(max(Monthly CTC x 50%, Rs. 17,000))</code></td>
+        </tr>
+        <tr>
+          <td>PF</td>
+          <td><code>0</code>, <code>Rs. 3,000</code>, or <code>12% of Basic</code></td>
+        </tr>
+        <tr>
+          <td>NPS options</td>
+          <td><code>0%</code>, <code>5%</code>, <code>10%</code>, <code>12.5%</code>, <code>14%</code></td>
+        </tr>
+        <tr>
+          <td>Professional tax</td>
+          <td><code>round(Rs. 2,500 / 12)</code>, mandatory</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>4.3 Comparison 2025-26 Rules</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Formula / Rule</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Eligibility</td>
+          <td>
+            If annual CTC is below <code>Rs. 3,50,000</code>, this side is not
+            calculated and a warning is shown.
+          </td>
+        </tr>
+        <tr>
+          <td>Basic</td>
+          <td><code>round(max(Monthly CTC x 30%, Rs. 16,000))</code></td>
+        </tr>
+        <tr>
+          <td>PF</td>
+          <td>Always <code>round(Basic x 12%)</code></td>
+        </tr>
+        <tr>
+          <td>NPS options</td>
+          <td><code>0%</code>, <code>10%</code>, <code>14%</code></td>
+        </tr>
+        <tr>
+          <td>Professional tax</td>
+          <td><code>Rs. 200</code>, mandatory</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>4.4 Comparison Employee Deduction and Net Salary</h3>
+    <p>Employee deduction in comparison is:</p>
+    <p>
+      <code>
+        PF + Professional Tax + Monthly Income Tax + VPF + Medical Insurance +
+        Loans and Advances
+      </code>
+    </p>
+    <p>Final comparison net salary is:</p>
+    <p>
+      <code>max(0, Gross Salary + BYOD - Employee Deduction)</code>
+    </p>
+
+    <h2>5. Validation and Warning Logic</h2>
+    <ul>
+      <li>Negative or invalid money inputs are reset to <code>0</code>.</li>
+      <li>Car rental is capped at <code>95%</code> of special allowance base.</li>
+      <li>VPF is capped at the allowed in-hand / basic-based maximum.</li>
+      <li>
+        Loans and advances are capped at the lesser of available in-hand amount
+        and <code>70%</code> of in-hand amount.
+      </li>
+      <li>
+        Special allowance may go negative in the main calculator and that is
+        intentional.
+      </li>
+      <li>
+        Net in hand / net salary is always prevented from becoming negative.
+      </li>
+      <li>
+        If caps are applied, the UI shows warning messages and uses the capped
+        values in the final calculations.
+      </li>
+    </ul>
+
+    <h2>6. Key Implementation Assumptions</h2>
+    <ul>
+      <li>
+        The calculator follows the latest implemented logic, even where earlier
+        business notes changed over time.
+      </li>
+      <li>
+        Car perks are dynamic and are treated as taxable only when car rental is enabled.
+      </li>
+      <li>
+        Car rental is displayed separately for clarity and is not counted inside
+        total deductions / employee deductions.
+      </li>
+      <li>
+        Additional taxable income from retiral contribution is applied internally
+        to tax calculations and not shown as a separate visible figure.
+      </li>
+      <li>
+        The comparison calculator is a side-by-side monthly comparison view and
+        uses year-specific rules where instructed.
+      </li>
+    </ul>
+
+    <p class="muted">
+      End of document.
+    </p>
+  </body>
+</html>

@@ -126,8 +126,8 @@ function calculateComparisonColumn({
   const pf =
     forceTwelvePercentPf
       ? round(basic * 0.12)
-      : input.pfMode === "fixed1800"
-      ? 1800
+      : input.pfMode === "fixed3000"
+      ? 3000
       : input.pfMode === "twelvePercent"
         ? round(basic * 0.12)
         : 0;
@@ -313,8 +313,8 @@ export function calculateSalary(rawInput: SalaryInput): SalaryResponse {
   const nps =
     input.npsRate > 0 ? round2((basic * input.npsRate) / 100) : 0;
   const pf =
-    input.pfMode === "fixed1800"
-      ? 1800
+    input.pfMode === "fixed3000"
+      ? 3000
       : input.pfMode === "twelvePercent"
         ? round2(basic * 0.12)
         : 0;

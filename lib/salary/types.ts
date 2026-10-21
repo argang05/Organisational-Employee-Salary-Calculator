@@ -1,7 +1,7 @@
 export type YesNo = "yes" | "no";
 export type NpsRate = 0 | 5 | 10 | 12.5 | 14;
 export type PreviousYearNpsRate = 0 | 10 | 14;
-export type PfMode = "none" | "fixed1800" | "twelvePercent";
+export type PfMode = "none" | "fixed3000" | "twelvePercent";
 export type MedicalInsuranceTier = "none" | "oneMember" | "twoMembers";
 
 export interface ComparisonYearInput {
